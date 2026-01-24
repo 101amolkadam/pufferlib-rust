@@ -75,19 +75,17 @@ impl ExperienceBuffer {
         let start = (self.pos * self.num_envs) as i64;
         let end = start + self.num_envs as i64;
 
-        let _ = self
-            .observations
+        self.observations
             .narrow(0, start, end - start)
             .copy_(observations);
-        let _ = self.actions.narrow(0, start, end - start).copy_(actions);
-        let _ = self
-            .log_probs
+        self.actions.narrow(0, start, end - start).copy_(actions);
+        self.log_probs
             .narrow(0, start, end - start)
             .copy_(log_probs);
-        let _ = self.rewards.narrow(0, start, end - start).copy_(rewards);
-        let _ = self.dones.narrow(0, start, end - start).copy_(dones);
-        let _ = self.values.narrow(0, start, end - start).copy_(values);
-        let _ = self.importance.narrow(0, start, end - start).fill_(1.0);
+        self.rewards.narrow(0, start, end - start).copy_(rewards);
+        self.dones.narrow(0, start, end - start).copy_(dones);
+        self.values.narrow(0, start, end - start).copy_(values);
+        self.importance.narrow(0, start, end - start).fill_(1.0);
 
         self.pos += 1;
     }
@@ -143,12 +141,10 @@ impl ExperienceBuffer {
             let delta = &rewards + gamma * &next_values * (1.0 - &dones) - &values;
             last_gae = &delta + gamma * gae_lambda * (1.0 - &dones) * &last_gae;
 
-            let _ = self
-                .advantages
+            self.advantages
                 .narrow(0, start, end - start)
                 .copy_(&last_gae);
-            let _ = self
-                .returns
+            self.returns
                 .narrow(0, start, end - start)
                 .copy_(&(&last_gae + &values));
         }
@@ -199,11 +195,10 @@ impl ExperienceBuffer {
         );
 
         // Flatten back
-        let _ = self
-            .advantages
+        self.advantages
             .narrow(0, 0, steps as i64 * num_envs)
             .copy_(&advantages.flatten(0, -1));
-        let _ = self.returns.narrow(0, 0, steps as i64 * num_envs).copy_(
+        self.returns.narrow(0, 0, steps as i64 * num_envs).copy_(
             &(&self.advantages.narrow(0, 0, steps as i64 * num_envs)
                 + &self.values.narrow(0, 0, steps as i64 * num_envs)),
         );

@@ -44,7 +44,7 @@ pub fn compute_gae(
         let delta = &r + gamma * &next_values * (1.0 - &d) - &v;
         last_gae = &delta + gamma * gae_lambda * (1.0 - &d) * &last_gae;
 
-        let _ = advantages.select(0, t as i64).copy_(&last_gae);
+        advantages.select(0, t as i64).copy_(&last_gae);
     }
 
     advantages
@@ -65,6 +65,7 @@ pub fn compute_gae(
 ///
 /// # Returns
 /// V-trace corrected advantages [T, N]
+#[allow(clippy::too_many_arguments)]
 pub fn compute_vtrace(
     rewards: &Tensor,
     values: &Tensor,
@@ -105,7 +106,7 @@ pub fn compute_vtrace(
         let delta = &rho_t * (&r + gamma * &next_values * (1.0 - &d) - &v);
         last_gae = &delta + gamma * gae_lambda * &c_t * (1.0 - &d) * &last_gae;
 
-        let _ = advantages.select(0, t as i64).copy_(&last_gae);
+        advantages.select(0, t as i64).copy_(&last_gae);
     }
 
     advantages
