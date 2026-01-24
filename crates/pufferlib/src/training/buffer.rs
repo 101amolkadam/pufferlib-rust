@@ -88,7 +88,6 @@ impl ExperienceBuffer {
         let _ = self.importance.narrow(0, start, end - start).fill_(1.0);
 
         self.pos += 1;
-
     }
 
     /// Reset buffer position
