@@ -9,63 +9,92 @@ pub struct EmulationLayer<E: RawPufferEnv> {
     env: E,
     /// Maximum number of agents
     num_agents: usize,
-    /// Metadata for observation flattening
-    obs_tree: SpaceTree,
-    /// Metadata for action unflattening
-    action_tree: SpaceTree,
+    /// Metadata for observation/action flattening per agent type
+    agent_trees: HashMap<String, (SpaceTree, SpaceTree)>,
+    /// Maximum observation size across all agent types
+    max_obs_size: usize,
 }
 
 impl<E: RawPufferEnv> EmulationLayer<E> {
     /// Create a new emulation layer
     pub fn new(env: E) -> Self {
-        let max_agents = env.num_agents();
-        let obs_space = env.observation_space();
-        let action_space = env.action_space();
+        let num_agents = env.num_agents();
+        let mut agent_trees = HashMap::new();
+        let mut max_obs_size = 0;
 
-        let obs_tree = SpaceTree::from_space(&obs_space);
-        let action_tree = SpaceTree::from_space(&action_space);
+        // Discover all agent types and their spaces
+        for i in 0..num_agents as u32 {
+            let agent_type = env.agent_type(i);
+            if !agent_trees.contains_key(&agent_type) {
+                let obs_space = env.observation_space_for(&agent_type);
+                let act_space = env.action_space_for(&agent_type);
+
+                let obs_tree = SpaceTree::from_space(&obs_space);
+                let act_tree = SpaceTree::from_space(&act_space);
+
+                max_obs_size = max_obs_size.max(obs_tree.size());
+                agent_trees.insert(agent_type, (obs_tree, act_tree));
+            }
+        }
 
         Self {
             env,
-            num_agents: max_agents,
-            obs_tree,
-            action_tree,
+            num_agents,
+            agent_trees,
+            max_obs_size,
         }
     }
 
-    fn flatten_observation(&self, obs: &Observation) -> ArrayD<f32> {
-        let mut buf = vec![0.0; self.obs_tree.size()];
-        self.obs_tree.flatten(obs, &mut buf);
-        ArrayD::from_shape_vec(IxDyn(&[buf.len()]), buf).unwrap()
+    fn flatten_observation(&self, obs: &Observation, agent_type: &str) -> ArrayD<f32> {
+        let (obs_tree, _) = self
+            .agent_trees
+            .get(agent_type)
+            .expect("Unknown agent type");
+        let mut buf = vec![0.0; self.max_obs_size];
+        obs_tree.flatten(obs, &mut buf);
+        ArrayD::from_shape_vec(IxDyn(&[self.max_obs_size]), buf).unwrap()
     }
 
     /// Reset the environment
     pub fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         let (obs, info) = self.env.reset(seed);
-        (self.flatten_observation(&obs), info)
+        let agent_type = self.env.agent_type(0);
+        (self.flatten_observation(&obs, &agent_type), info)
     }
 }
 
 impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
     fn observation_space(&self) -> DynSpace {
-        self.env.observation_space()
+        // Heterogeneous: return a unified Box space for the flat tensor
+        DynSpace::Box(crate::spaces::Box::uniform(
+            &[self.max_obs_size],
+            -f32::INFINITY,
+            f32::INFINITY,
+        ))
     }
 
     fn action_space(&self) -> DynSpace {
-        self.env.action_space()
+        // Return representative action space (first agent)
+        self.env.action_space_for(&self.env.agent_type(0))
     }
 
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         let (obs, info) = self.env.reset(seed);
-        (self.flatten_observation(&obs), info)
+        let agent_type = self.env.agent_type(0);
+        (self.flatten_observation(&obs, &agent_type), info)
     }
 
     fn step(&mut self, action: &ArrayD<f32>) -> StepResult {
         if self.num_agents == 1 {
-            let structured_action = self.action_tree.unflatten(action.as_slice().unwrap());
+            let agent_type = self.env.agent_type(0);
+            let (_, action_tree) = self
+                .agent_trees
+                .get(&agent_type)
+                .expect("Unknown agent type");
+            let structured_action = action_tree.unflatten(action.as_slice().unwrap());
             let res = self.env.step(&structured_action);
             return StepResult {
-                observation: self.flatten_observation(&res.observation),
+                observation: self.flatten_observation(&res.observation, &agent_type),
                 reward: res.reward,
                 terminated: res.terminated,
                 truncated: res.truncated,
@@ -74,22 +103,25 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
         }
 
         // Multi-agent case: action is [num_agents, action_size]
-        let action_size = self.action_tree.size();
         let mut structured_actions = HashMap::new();
 
-        for i in 0..self.num_agents {
-            let start = i * action_size;
+        for i in 0..self.num_agents as u32 {
+            let agent_type = self.env.agent_type(i);
+            let (_, action_tree) = self
+                .agent_trees
+                .get(&agent_type)
+                .expect("Unknown agent type");
+            let action_size = action_tree.size();
+
+            let start = i as usize * action_size;
             let slice = action.as_slice().unwrap();
-            let agent_action = self
-                .action_tree
-                .unflatten(&slice[start..start + action_size]);
-            structured_actions.insert(i as u32, agent_action);
+            let agent_action = action_tree.unflatten(&slice[start..start + action_size]);
+            structured_actions.insert(i, agent_action);
         }
 
         let res_map = self.env.multi_step(&structured_actions);
 
-        let flat_obs_size = self.obs_tree.size();
-        let mut combined_obs = ArrayD::from_elem(IxDyn(&[self.num_agents, flat_obs_size]), 0.0);
+        let mut combined_obs = ArrayD::from_elem(IxDyn(&[self.num_agents, self.max_obs_size]), 0.0);
         let mut total_reward = 0.0;
         let mut terminated = false;
         let mut truncated = false;
@@ -97,14 +129,14 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
 
         for i in 0..self.num_agents as u32 {
             if let Some(res) = res_map.get(&i) {
+                let agent_type = self.env.agent_type(i);
                 let mut slice = combined_obs.slice_mut(ndarray::s![i as usize, ..]);
-                let flat = self.flatten_observation(&res.observation);
-                slice.assign(&flat.view().to_shape((flat_obs_size,)).unwrap());
+                let flat = self.flatten_observation(&res.observation, &agent_type);
+                slice.assign(&flat.view().to_shape((self.max_obs_size,)).unwrap());
 
                 total_reward += res.reward;
                 terminated |= res.terminated;
                 truncated |= res.truncated;
-                // Merge info if needed (simplified for now)
                 if i == 0 {
                     combined_info = res.info.clone();
                 }
@@ -200,7 +232,6 @@ mod tests {
 
         let mut emulated = EmulationLayer::new(ComplexEnv);
         let (obs, _) = emulated.reset(None);
-
         assert_eq!(obs.len(), 3);
         assert_eq!(obs[0], 0.5);
         assert_eq!(obs[1], 0.5);
@@ -210,9 +241,7 @@ mod tests {
     struct MockMarl {
         num_agents: usize,
         agent_positions: Vec<f32>,
-        tick: u32,
     }
-
     impl RawPufferEnv for MockMarl {
         fn observation_space(&self) -> DynSpace {
             DynSpace::Box(BoxSpace::uniform(&[1], -10.0, 10.0))
@@ -222,7 +251,6 @@ mod tests {
         }
         fn reset(&mut self, _seed: Option<u64>) -> (Observation, EnvInfo) {
             self.agent_positions = vec![0.0; self.num_agents];
-            self.tick = 0;
             (
                 Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 0.0)),
                 EnvInfo::new(),
@@ -266,18 +294,105 @@ mod tests {
         let mock = MockMarl {
             num_agents: 4,
             agent_positions: vec![0.0; 4],
-            tick: 0,
         };
         let mut emulated = EmulationLayer::new(mock);
-
         let actions = ArrayD::from_elem(IxDyn(&[4, 1]), 1.0);
         let res = emulated.step(&actions);
-
         assert_eq!(res.observation.shape(), &[4, 1]);
         let obs_data = res.observation.as_slice().unwrap();
-        assert_eq!(obs_data[0], 1.0); // Agent 0 active
-        assert_eq!(obs_data[1], 0.0); // Agent 1 inactive (padded)
-        assert_eq!(obs_data[2], 1.0); // Agent 2 active
-        assert_eq!(obs_data[3], 0.0); // Agent 3 inactive (padded)
+        assert_eq!(obs_data[0], 1.0);
+        assert_eq!(obs_data[1], 0.0);
+        assert_eq!(obs_data[2], 1.0);
+        assert_eq!(obs_data[3], 0.0);
+    }
+
+    struct HeteroMock;
+    impl RawPufferEnv for HeteroMock {
+        fn observation_space(&self) -> DynSpace {
+            DynSpace::Box(BoxSpace::uniform(&[1], 0.0, 1.0))
+        }
+        fn action_space(&self) -> DynSpace {
+            DynSpace::Box(BoxSpace::uniform(&[1], 0.0, 1.0))
+        }
+        fn num_agents(&self) -> usize {
+            2
+        }
+        fn active_agents(&self) -> Vec<u32> {
+            vec![0, 1]
+        }
+        fn agent_type(&self, id: u32) -> String {
+            if id == 0 {
+                "s".to_string()
+            } else {
+                "l".to_string()
+            }
+        }
+        fn observation_space_for(&self, t: &str) -> DynSpace {
+            if t == "s" {
+                DynSpace::Box(BoxSpace::uniform(&[2], 0.0, 1.0))
+            } else {
+                let mut d = HashMap::new();
+                d.insert(
+                    "a".to_string(),
+                    DynSpace::Box(BoxSpace::uniform(&[4], 0.0, 1.0)),
+                );
+                DynSpace::Dict(Dict::new(d))
+            }
+        }
+        fn reset(&mut self, _s: Option<u64>) -> (Observation, EnvInfo) {
+            (
+                Observation::Array(ArrayD::from_elem(IxDyn(&[2]), 0.0)),
+                EnvInfo::new(),
+            )
+        }
+        fn step(&mut self, _a: &Action) -> RawStepResult {
+            unimplemented!()
+        }
+        fn multi_step(&mut self, _a: &HashMap<u32, Action>) -> HashMap<u32, RawStepResult> {
+            let mut r = HashMap::new();
+            r.insert(
+                0,
+                RawStepResult {
+                    observation: Observation::Array(ArrayD::from_elem(IxDyn(&[2]), 0.5)),
+                    reward: 1.0,
+                    terminated: false,
+                    truncated: false,
+                    info: EnvInfo::new(),
+                },
+            );
+            let mut m = HashMap::new();
+            m.insert(
+                "a".to_string(),
+                Observation::Array(ArrayD::from_elem(IxDyn(&[4]), 1.0)),
+            );
+            r.insert(
+                1,
+                RawStepResult {
+                    observation: Observation::Dict(m),
+                    reward: 2.0,
+                    terminated: false,
+                    truncated: false,
+                    info: EnvInfo::new(),
+                },
+            );
+            r
+        }
+    }
+
+    #[test]
+    fn test_heterogeneous_emulation() {
+        let mut emulated = EmulationLayer::new(HeteroMock);
+        let actions = ArrayD::from_elem(IxDyn(&[2, 1]), 0.0);
+        let res = emulated.step(&actions);
+        assert_eq!(res.observation.shape(), &[2, 4]);
+        let obs = res.observation.as_slice().unwrap();
+        assert_eq!(obs[0], 0.5);
+        assert_eq!(obs[1], 0.5);
+        assert_eq!(obs[2], 0.0);
+        assert_eq!(obs[3], 0.0); // Padded agent 0
+        assert_eq!(obs[4], 1.0);
+        assert_eq!(obs[5], 1.0);
+        assert_eq!(obs[6], 1.0);
+        assert_eq!(obs[7], 1.0); // Agent 1
     }
 }

@@ -204,6 +204,21 @@ pub trait PufferEnv: Send {
         vec![0]
     }
 
+    /// Get the type/role of an agent
+    fn agent_type(&self, _agent_id: u32) -> String {
+        "default".to_string()
+    }
+
+    /// Get observation space for a specific agent type
+    fn observation_space_for(&self, _agent_type: &str) -> DynSpace {
+        self.observation_space()
+    }
+
+    /// Get action space for a specific agent type
+    fn action_space_for(&self, _agent_type: &str) -> DynSpace {
+        self.action_space()
+    }
+
     /// Check if environment is done and needs reset
     fn is_done(&self) -> bool {
         false
@@ -244,6 +259,21 @@ pub trait RawPufferEnv: Send {
     /// Get IDs of currently active agents
     fn active_agents(&self) -> Vec<u32> {
         vec![0]
+    }
+
+    /// Get the type/role of an agent
+    fn agent_type(&self, _agent_id: u32) -> String {
+        "default".to_string()
+    }
+
+    /// Get observation space for a specific agent type
+    fn observation_space_for(&self, _agent_type: &str) -> DynSpace {
+        self.observation_space()
+    }
+
+    /// Get action space for a specific agent type
+    fn action_space_for(&self, _agent_type: &str) -> DynSpace {
+        self.action_space()
     }
 
     /// Take a multi-agent structured step

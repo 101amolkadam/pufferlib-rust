@@ -2,16 +2,16 @@
 
 This document outlines the strategic direction and planned features for the PufferLib Rust ecosystem. Our goal is to provide the fastest, most reliable RL framework in existence.
 
-## 🟢 Phase 1: Core & Emulation (Current Focus)
+## 🟢 Phase 1: Core & Emulation (COMPLETE)
 *Goal: Achieve feature parity with PufferLib's core emulation logic.*
 
 - [x] **Base Traits**: Robust `PufferEnv` and `VecEnv` abstractions.
 - [x] **Vectorization**: Serial and Parallel (Lock-Free Rayon) backends.
 - [x] **Basic Spaces**: Discrete, MultiDiscrete, Box, and Dict support.
-- [ ] **Advanced Emulation**:
-    - [ ] Variable agent population padding/masking.
-    - [ ] Heterogeneous agent handling.
-    - [ ] Deep nested observation space flattening (recursive Dict/Tuple).
+- [x] **Advanced Emulation**:
+    - [x] Variable agent population padding/masking.
+    - [x] Heterogeneous agent handling.
+    - [x] Deep nested observation space flattening (recursive Dict/Tuple).
 - [x] **State Serialization**: Deterministic environment state save/restore.
 
 ## 🟡 Phase 2: Algorithmic Expansion
