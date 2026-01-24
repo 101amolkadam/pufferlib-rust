@@ -64,4 +64,13 @@ mod tests {
         assert!(space.contains(&4));
         assert!(!space.contains(&5));
     }
+
+    #[test]
+    fn test_discrete_single_element() {
+        let space = Discrete::new(1);
+        assert!(space.contains(&0));
+        assert!(!space.contains(&1));
+        assert_eq!(space.n, 1);
+        assert_eq!(space.shape(), &[1]);
+    }
 }

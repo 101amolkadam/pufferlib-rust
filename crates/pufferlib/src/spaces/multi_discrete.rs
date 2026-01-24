@@ -83,4 +83,12 @@ mod tests {
         assert!(!space.contains(&vec![0, 4])); // Second dim out of range
         assert!(!space.contains(&vec![0])); // Wrong length
     }
+
+    #[test]
+    fn test_multi_discrete_properties() {
+        let space = MultiDiscrete::new(vec![2, 2, 2]);
+        assert_eq!(space.ndim(), 3);
+        assert_eq!(space.num_elements(), 3);
+        assert_eq!(space.shape(), &[3]);
+    }
 }

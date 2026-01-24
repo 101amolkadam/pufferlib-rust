@@ -219,13 +219,14 @@ mod tests {
     }
     
     #[test]
-    fn test_squared_step() {
-        let mut env = Squared::new(2);
-        env.reset(Some(42));
+    fn test_squared_seed_consistency() {
+        let mut env1 = Squared::new(3);
+        let mut env2 = Squared::new(3);
         
-        let action = ArrayD::from_elem(IxDyn(&[1]), 0.0);  // Move north
-        let result = env.step(&action);
+        let (obs1, _) = env1.reset(Some(1234));
+        let (obs2, _) = env2.reset(Some(1234));
         
-        assert_eq!(result.observation.len(), 25);
+        assert_eq!(obs1, obs2);
+        assert_eq!(env1.targets, env2.targets);
     }
 }

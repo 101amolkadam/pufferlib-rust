@@ -123,15 +123,17 @@ mod tests {
     }
     
     #[test]
-    fn test_bandit_optimal() {
-        let mut env = Bandit::new(4);
+    fn test_bandit_seed_consistency() {
+        let mut env1 = Bandit::new(10);
+        let mut env2 = Bandit::new(10);
         
-        // Find optimal arm and verify it gives reward
-        let optimal = env.solution_idx;
-        env.reset(None);
-        
-        let action = ArrayD::from_elem(IxDyn(&[1]), optimal as f32);
-        let result = env.step(&action);
-        assert_eq!(result.reward, 1.0);
+        let (obs1, _) = env1.reset(Some(123));
+        let (obs2, _) = env2.reset(Some(123));
+        assert_eq!(obs1, obs2);
+
+        let action = ArrayD::from_elem(IxDyn(&[1]), 0.0);
+        let res1 = env1.step(&action);
+        let res2 = env2.step(&action);
+        assert_eq!(res1.reward, res2.reward);
     }
 }

@@ -52,8 +52,20 @@ impl Space for Dict {
             .collect()
     }
     
-    fn contains(&self, _value: &Self::Sample) -> bool {
-        // TODO: Implement proper containment check
+    fn contains(&self, value: &Self::Sample) -> bool {
+        if value.len() != self.spaces.len() {
+            return false;
+        }
+        for (k, v) in &self.spaces {
+            match value.get(k) {
+                Some(sample) => {
+                    if !v.contains(sample) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
         true
     }
     
@@ -77,5 +89,24 @@ mod tests {
         assert!(dict.get("position").is_some());
         assert!(dict.get("action").is_some());
         assert!(dict.get("unknown").is_none());
+    }
+
+    #[test]
+    fn test_dict_contains() {
+        let dict = Dict::from_pairs(vec![
+            ("pos", DynSpace::Discrete(Discrete::new(2))),
+        ]);
+
+        let mut valid = HashMap::new();
+        valid.insert("pos".to_string(), ndarray::ArrayD::from_elem(ndarray::IxDyn(&[1]), 0.0));
+        assert!(dict.contains(&valid));
+
+        let mut invalid_val = HashMap::new();
+        invalid_val.insert("pos".to_string(), ndarray::ArrayD::from_elem(ndarray::IxDyn(&[1]), 2.0));
+        assert!(!dict.contains(&invalid_val));
+
+        let mut invalid_key = HashMap::new();
+        invalid_key.insert("wrong".to_string(), ndarray::ArrayD::from_elem(ndarray::IxDyn(&[1]), 0.0));
+        assert!(!dict.contains(&invalid_key));
     }
 }

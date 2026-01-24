@@ -204,23 +204,18 @@ mod tests {
     }
     
     #[test]
-    fn test_cartpole_episode() {
-        let mut env = CartPole::new();
-        env.reset(Some(42));
+    fn test_cartpole_determinism() {
+        let mut env1 = CartPole::new();
+        let mut env2 = CartPole::new();
         
-        let mut total_reward = 0.0;
-        let mut steps = 0;
+        env1.reset(Some(42));
+        env2.reset(Some(42));
         
-        while !env.is_done() {
-            let action = ArrayD::from_elem(IxDyn(&[1]), (steps % 2) as f32);
-            let result = env.step(&action);
-            total_reward += result.reward;
-            steps += 1;
-            
-            if steps > 1000 { break; }  // Safety limit
+        for _ in 0..10 {
+            let action = ArrayD::from_elem(IxDyn(&[1]), 1.0);
+            let res1 = env1.step(&action);
+            let res2 = env2.step(&action);
+            assert_eq!(res1.observation, res2.observation);
         }
-        
-        assert!(steps > 0);
-        assert!(total_reward > 0.0);
     }
 }

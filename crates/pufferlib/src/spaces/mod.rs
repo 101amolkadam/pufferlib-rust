@@ -73,4 +73,22 @@ impl DynSpace {
             DynSpace::Dict(_) => unimplemented!("Dict sampling not yet implemented"),
         }
     }
+
+    /// Check if this space contains the value
+    pub fn contains(&self, value: &ArrayD<f32>) -> bool {
+        match self {
+            DynSpace::Discrete(s) => {
+                if value.len() != 1 { return false; }
+                let v = value.iter().next().unwrap().round() as usize;
+                s.contains(&v)
+            }
+            DynSpace::MultiDiscrete(s) => {
+                if value.len() != s.nvec.len() { return false; }
+                let v: Vec<usize> = value.iter().map(|&x| x.round() as usize).collect();
+                s.contains(&v)
+            }
+            DynSpace::Box(s) => s.contains(value),
+            DynSpace::Dict(_) => false, // TODO: Support nested dicts if needed
+        }
+    }
 }

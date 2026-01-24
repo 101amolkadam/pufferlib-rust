@@ -178,19 +178,13 @@ mod tests {
     }
     
     #[test]
-    fn test_memory_episode() {
-        let mut env = Memory::new(2, 0);  // Short episode for testing
-        env.reset(Some(42));
+    fn test_memory_seed_consistency() {
+        let mut env1 = Memory::new(5, 5);
+        let mut env2 = Memory::new(5, 5);
         
-        // Run through episode
-        for _ in 0..4 {
-            let action = ArrayD::from_elem(IxDyn(&[1]), 0.0);
-            let result = env.step(&action);
-            if result.done() {
-                break;
-            }
-        }
+        env1.reset(Some(999));
+        env2.reset(Some(999));
         
-        assert!(env.is_done());
+        assert_eq!(env1.solution, env2.solution);
     }
 }

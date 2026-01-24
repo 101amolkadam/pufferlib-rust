@@ -104,4 +104,15 @@ mod tests {
         assert!(space.contains(&valid));
         assert!(!space.contains(&invalid));
     }
+
+    #[test]
+    fn test_box_constructors() {
+        let symmetric = Box::symmetric(&[1]);
+        assert_eq!(symmetric.low[[0]], -1.0);
+        assert_eq!(symmetric.high[[0]], 1.0);
+
+        let unit = Box::unit(&[5]);
+        assert_eq!(unit.low.len(), 5);
+        assert!(unit.contains(&ArrayD::from_elem(IxDyn(&[5]), 0.5)));
+    }
 }
