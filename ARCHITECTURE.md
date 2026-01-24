@@ -38,6 +38,18 @@ The PPO implementation.
 - **V-trace**: Implements V-trace for off-policy corrections, keeping training stable even with asynchronous updates.
 - **GAE**: Generalized Advantage Estimation for variance reduction.
 
+## 🛡️ The Emulation Layer
+The core innovation of PufferLib is the **Emulation Layer**. It acts as a bidirectional translator between:
+1. **Dynamic Simulations**: Environments with variable numbers of agents, heterogeneous action spaces, and nested observations.
+2. **Static Neural Networks**: Policies that require fixed-size tensor inputs and constant action dimensions.
+
+Rust achieves this through `DynSpace` and recursive flattening, ensuring that any complex simulation can be trained by a standard MLP or LSTM without modifying the agent code.
+
+## 🔌 Hardware Backends
+Currently, PufferLib Rust utilizes **LibTorch** (`tch-rs`) for its high-performance tensor engine. Our architecture is designed to eventually support:
+- **Candle**: HuggingFace's pure-Rust ML framework for zero-dependency distributed deployment.
+- **ArrayFire**: For high-performance GPGPU computing outside the Torch ecosystem.
+
 ## ⚡ Performance Considerations
 
 PufferLib Rust achieves superior performance by:

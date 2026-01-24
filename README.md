@@ -7,7 +7,7 @@
 
 **High-performance, pure-Rust reinforcement learning library optimized for research and production scale.**
 
-PufferLib Rust is the evolution of reinforcement learning for the Rust ecosystem. Designed for researchers who need native performance and developers who demand type-safe production systems.
+PufferLib Rust is the high-bandwidth link between complex simulations and neural policies. While inspired by the original Python [PufferLib](https://github.com/PufferAI/PufferLib), this port is built from the ground up for **zero-GIL parallelism**, **type-safe emulation**, and **embedded performance**.
 
 ---
 
@@ -32,6 +32,16 @@ PufferLib Rust is the evolution of reinforcement learning for the Rust ecosystem
 | **Neural Backends** | High-speed tensor operations via LibTorch (`tch-rs`). | ✅ |
 | **LSTM Policies** | Full support for temporal dependency tracking. | ✅ |
 | **Modular Spaces** | Discrete, Box, Dict, and Multi-discrete actions/obs. | ✅ |
+| **Emulation Layer** | Native handling of complex/nested observation spaces. | 🏗️ |
+
+### 🦀 Rust vs. 🐍 Python
+| Capability | PufferLib (Python) | PufferLib (Rust) |
+| :--- | :---: | :---: |
+| Parallelism | Process-based (pickling overhead) | Thread-based (Zero-copy) |
+| Safety | Dynamic / Runtime checks | Compile-time / Type-safe |
+| Latency | High (Inter-process) | Ultra-low (Local memory) |
+| Scalability | Ray Distributed | Rayon Work-stealing |
+| Portability | Heavy runtime (Python + Torch) | Static binary (LibTorch only) |
 
 ---
 
@@ -115,10 +125,9 @@ PufferLib uses V-trace to handle the discrepancy between the behavior policy and
 
 ## 🗺️ Roadmap
 
-- [ ] **v0.2.0**: Support for Multi-Agent Reinforcement Learning (MARL).
-- [ ] **v0.3.0**: Add SAC (Soft Actor-Critic) implementation.
-- [ ] **v0.4.0**: Integration with Bevy for 3D RL environments.
-- [ ] **v1.0.0**: Stable API and full crates.io release.
+We have a phased plan to reach v1.0.0, focusing on feature parity with the Python core followed by unique Rust-first optimizations.
+
+See the full [ROADMAP.md](ROADMAP.md) for details.
 
 ---
 
