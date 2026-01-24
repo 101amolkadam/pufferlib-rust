@@ -10,8 +10,9 @@ use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::PufferEnv;
 use pufferlib_envs::{Bandit, CartPole, Squared, Memory};
 
-#[cfg(feature = "torch")]
+// #[cfg(feature = "torch")]
 // use pufferlib::vector::VecEnvBackend;
+
 
 #[derive(Parser)]
 #[command(name = "puffer")]
