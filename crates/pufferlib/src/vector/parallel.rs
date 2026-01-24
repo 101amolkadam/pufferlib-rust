@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 
 /// Parallel vectorization backend using rayon
 pub struct Parallel<E: PufferEnv> {
-    /// Environments wrapped in Arc<Mutex> for thread-safe access
-    envs: Vec<Arc<Mutex<E>>>,
+    /// Environments owned by the backend
+    envs: Vec<E>,
     /// Number of environments
     num_envs: usize,
     /// Cached observation shape
@@ -37,20 +37,13 @@ impl<E: PufferEnv> Parallel<E> {
         let obs_shape = obs_space.shape().to_vec();
 
         // Create all envs in parallel
-        // We use Arc<Mutex> because we need to share ownership with the threads (rayon)
-        // and allow mutable access via the mutex.
-        let envs: Vec<_> = (0..num_envs)
+        let mut envs: Vec<_> = (0..num_envs)
             .into_par_iter()
-            .map(|_| Arc::new(Mutex::new(env_creator())))
+            .map(|_| env_creator())
             .collect();
 
         // Replace first env to ensure we reuse the one created for space detection
-        // Note: In efficient implementation we might want to just creating it inside the map
-        // but we need spaces before creating the collection to potentially validation.
-        // Here we just swap it.
-        if let Ok(mut env) = envs[0].lock() {
-            *env = first_env;
-        }
+        envs[0] = first_env;
 
         Self {
             envs,
@@ -78,11 +71,10 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
     fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
         let results: Vec<_> = self
             .envs
-            .par_iter()
+            .par_iter_mut()
             .enumerate()
             .map(|(i, env)| {
                 let env_seed = seed.map(|s| s + i as u64);
-                let mut env = env.lock().unwrap();
                 env.reset(env_seed)
             })
             .collect();
@@ -103,20 +95,15 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
     }
 
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult {
-        // Convert actions to owned vec for parallel iteration
-        let action_vecs: Vec<Vec<f32>> = (0..self.num_envs)
-            .map(|i| actions.row(i).to_vec())
-            .collect();
-
         let results: Vec<_> = self
             .envs
-            .par_iter()
-            .zip(action_vecs.par_iter())
-            .map(|(env, action_vec)| {
-                let action = ArrayD::from_shape_vec(IxDyn(&[action_vec.len()]), action_vec.clone())
-                    .expect("Failed to create action array");
-
-                let mut env = env.lock().unwrap();
+            .par_iter_mut()
+            .enumerate()
+            .map(|(i, env)| {
+                let action_row = actions.row(i);
+                let action =
+                    ArrayD::from_shape_vec(IxDyn(&[action_row.len()]), action_row.to_vec())
+                        .expect("Failed to create action array");
 
                 if env.is_done() {
                     let (obs, info) = env.reset(None);
@@ -159,8 +146,8 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
     }
 
     fn close(&mut self) {
-        self.envs.par_iter().for_each(|env| {
-            env.lock().unwrap().close();
+        self.envs.par_iter_mut().for_each(|env| {
+            env.close();
         });
     }
 }

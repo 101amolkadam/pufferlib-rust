@@ -71,7 +71,14 @@ impl DynSpace {
                 .unwrap()
             }
             DynSpace::Box(s) => s.sample(rng),
-            DynSpace::Dict(_) => unimplemented!("Dict sampling not yet implemented"),
+            DynSpace::Dict(s) => {
+                let sample = s.sample(rng);
+                let flattened: Vec<f32> = sample
+                    .into_iter()
+                    .flat_map(|(_, v)| v.into_iter())
+                    .collect();
+                ArrayD::from_shape_vec(ndarray::IxDyn(&[flattened.len()]), flattened).unwrap()
+            }
         }
     }
 
