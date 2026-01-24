@@ -124,7 +124,7 @@ impl MlpPolicy {
                 });
             } else if name.contains("bias") {
                 tch::no_grad(|| {
-                    var.zero_();
+                    let _ = var.zero_();
                 });
             }
         }
