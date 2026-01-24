@@ -17,11 +17,11 @@ This document outlines the strategic direction and planned features for the Puff
 ## 🟡 Phase 2: Algorithmic Expansion
 *Goal: Broaden the library's utility beyond standard PPO.*
 
-- [ ] **Continuous Actions**: Full support for Gaussian policies and SAC (Soft Actor-Critic).
-- [ ] **Advanced PPO Features**:
-    - [ ] Dual-clipping (standard in PufferLib).
-    - [ ] Adaptive KL penalty tracking.
-    - [ ] Value function clipping.
+- [x] **Continuous Actions**: Full support for Gaussian policies and SAC (Soft Actor-Critic).
+- [x] **Advanced PPO Features**:
+    - [x] Dual-clipping (standard in PufferLib).
+    - [x] Adaptive KL penalty tracking.
+    - [x] Value function clipping.
 - [ ] **Protein (Auto-Tune)**: Native Rust implementation of PufferLib's Bayesian HPO system.
 - [ ] **Self-Play & ELO**: 
     - [ ] Historical self-play wrappers.

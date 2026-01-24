@@ -2,7 +2,7 @@
 
 use super::buffer::ExperienceBuffer;
 use super::config::TrainerConfig;
-use super::ppo::{ppo_policy_loss, ppo_value_loss};
+use super::ppo::{kl_divergence, ppo_dual_clip_policy_loss, ppo_policy_loss, ppo_value_loss};
 use crate::policy::{HasVarStore, Policy};
 use crate::spaces::Space;
 use crate::vector::VecEnvBackend;
@@ -262,54 +262,101 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
     fn update(&mut self) {
         let minibatch_size = self.config.minibatch_size();
 
-        for _ in 0..self.config.update_epochs {
-            let indices = self.buffer.get_minibatch_indices(minibatch_size);
-            let batch = self.buffer.get_minibatch(&indices);
+        for epoch in 0..self.config.update_epochs {
+            let mut epoch_kls = Vec::new();
+            
+            for _ in 0..self.config.num_minibatches {
+                let indices = self.buffer.get_minibatch_indices(minibatch_size);
+                let batch = self.buffer.get_minibatch(&indices);
 
-            // Normalize advantages
-            let advantages = &batch.advantages;
-            let adv_mean = advantages.mean(Kind::Float);
-            let adv_std = advantages.std(false);
-            let normalized_advantages = (advantages - &adv_mean) / (&adv_std + 1e-8);
+                // Normalize advantages
+                let advantages = &batch.advantages;
+                let adv_mean = advantages.mean(Kind::Float);
+                let adv_std = advantages.std(false);
+                let normalized_advantages = (advantages - &adv_mean) / (&adv_std + 1e-8);
 
-            // Forward pass
-            let (dist, values, _) = self.policy.forward(&batch.observations, &None);
-            let actions = &batch.actions;
+                // Forward pass
+                let (dist, values, _) = self.policy.forward(&batch.observations, &None);
+                let actions = &batch.actions;
 
-            // For categorical log_probs expect Int64 in gather, for Gaussian expect Float.
-            // Distribution::log_prob handles conversion for discrete internally now.
-            let new_log_probs = dist.log_prob(actions);
-            let entropy = dist.entropy();
+                let new_log_probs = dist.log_prob(actions);
+                let entropy = dist.entropy();
 
-            // Compute losses
-            let policy_loss = ppo_policy_loss(
-                &normalized_advantages,
-                &new_log_probs,
-                &batch.log_probs,
-                self.config.clip_coef,
-            );
+                // Compute KL divergence for stability tracking
+                let kl = kl_divergence(&new_log_probs, &batch.log_probs);
+                epoch_kls.push(kl.double_value(&[]));
 
-            let value_loss = ppo_value_loss(
-                &values,
-                &batch.values,
-                &batch.returns,
-                self.config.vf_clip_coef,
-            );
+                // Compute losses
+                let policy_loss = if self.config.dual_clip_coef > 0.0 {
+                    ppo_dual_clip_policy_loss(
+                        &normalized_advantages,
+                        &new_log_probs,
+                        &batch.log_probs,
+                        self.config.clip_coef,
+                        self.config.dual_clip_coef,
+                    )
+                } else {
+                    ppo_policy_loss(
+                        &normalized_advantages,
+                        &new_log_probs,
+                        &batch.log_probs,
+                        self.config.clip_coef,
+                    )
+                };
 
-            let entropy_loss = -entropy.mean(Kind::Float);
+                let value_loss = ppo_value_loss(
+                    &values,
+                    &batch.values,
+                    &batch.returns,
+                    self.config.vf_clip_coef,
+                );
 
-            let loss = &policy_loss
-                + self.config.vf_coef * &value_loss
-                + self.config.ent_coef * &entropy_loss;
+                let entropy_loss = -entropy.mean(Kind::Float);
 
-            // Backward pass
-            self.optimizer.zero_grad();
-            loss.backward();
+                let loss = &policy_loss
+                    + self.config.vf_coef * &value_loss
+                    + self.config.ent_coef * &entropy_loss;
 
-            // Gradient clipping
-            // Note: tch-rs doesn't have a direct clip_grad_norm, so we skip for now
+                // Backward pass
+                self.optimizer.zero_grad();
+                loss.backward();
 
-            self.optimizer.step();
+                // Gradient clipping
+                let mut global_norm = 0.0f64;
+                for var in self.policy.var_store().variables().values() {
+                    let grad = var.grad();
+                    if grad.defined() {
+                        global_norm += grad.pow_tensor_scalar(2.0).sum(Kind::Float).double_value(&[]);
+                    }
+                }
+                global_norm = global_norm.sqrt();
+
+                if global_norm > self.config.max_grad_norm {
+                    let clip_coef = self.config.max_grad_norm / (global_norm + 1e-6);
+                    for mut var in self.policy.var_store().variables().values() {
+                        let mut grad = var.grad();
+                        if grad.defined() {
+                            let _ = grad.f_mul_scalar_(clip_coef);
+                        }
+                    }
+                }
+
+                self.optimizer.step();
+            }
+
+            // Early stopping based on KL divergence
+            if !epoch_kls.is_empty() {
+                let mean_kl = epoch_kls.iter().sum::<f64>() / epoch_kls.len() as f64;
+                if mean_kl > self.config.target_kl {
+                    tracing::info!(
+                        epoch = epoch,
+                        kl = mean_kl,
+                        target = self.config.target_kl,
+                        "Early stopping due to high KL divergence"
+                    );
+                    break;
+                }
+            }
         }
     }
 

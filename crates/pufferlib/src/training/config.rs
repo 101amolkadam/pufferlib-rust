@@ -35,6 +35,10 @@ pub struct TrainerConfig {
     pub vf_coef: f64,
     /// Maximum gradient norm
     pub max_grad_norm: f64,
+    /// Target KL divergence for early stopping
+    pub target_kl: f64,
+    /// PPO dual-clip coefficient (0.0 to disable)
+    pub dual_clip_coef: f64,
 
     // V-trace
     /// V-trace rho clipping
@@ -88,6 +92,8 @@ impl Default for TrainerConfig {
             ent_coef: 0.01,
             vf_coef: 0.5,
             max_grad_norm: 0.5,
+            target_kl: 0.015,
+            dual_clip_coef: 0.0,
 
             vtrace_rho_clip: 1.0,
             vtrace_c_clip: 1.0,

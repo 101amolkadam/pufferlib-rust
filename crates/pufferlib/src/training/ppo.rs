@@ -142,13 +142,44 @@ pub fn ppo_value_loss(
     loss1.max_other(&loss2).mean(Kind::Float) * 0.5
 }
 
+/// Compute KL divergence between old and new log probabilities
+pub fn kl_divergence(log_probs: &Tensor, old_log_probs: &Tensor) -> Tensor {
+    (old_log_probs - log_probs).mean(Kind::Float)
+}
+
+/// Compute PPO dual-clipped policy loss
+/// Useful for continuous action spaces to prevent large updates
+pub fn ppo_dual_clip_policy_loss(
+    advantages: &Tensor,
+    log_probs: &Tensor,
+    old_log_probs: &Tensor,
+    clip_coef: f64,
+    dual_clip_coef: f64,
+) -> Tensor {
+    let ratio = (log_probs - old_log_probs).exp();
+
+    let surr1 = &ratio * advantages;
+    let surr2 = ratio.clamp(1.0 - clip_coef, 1.0 + clip_coef) * advantages;
+
+    let ppo_loss = surr1.min_other(&surr2);
+
+    // Dual clip: for negative advantages, we don't want the ratios to be too small
+    let is_neg_adv = advantages.lt(0.0).to_kind(Kind::Float);
+    let dual_clipped = dual_clip_coef * advantages;
+
+    // loss = max(ppo_loss, dual_clip * adv) for neg advantages
+    let final_loss: Tensor = (1.0f64 - &is_neg_adv) * &ppo_loss + &is_neg_adv * ppo_loss.max_other(&dual_clipped);
+
+    -final_loss.mean(Kind::Float)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tch::Device;
 
     #[test]
     fn test_gae_computation() {
-        use tch::Device;
         let rewards = Tensor::ones([4, 2], (Kind::Float, Device::Cpu));
         let values = Tensor::zeros([4, 2], (Kind::Float, Device::Cpu));
         let dones = Tensor::zeros([4, 2], (Kind::Float, Device::Cpu));
@@ -159,5 +190,30 @@ mod tests {
         assert_eq!(advantages.size(), [4, 2]);
         // With all rewards = 1, values = 0, dones = 0, advantages should be positive
         assert!(advantages.mean(Kind::Float).double_value(&[]) > 0.0);
+    }
+
+    #[test]
+    fn test_gae_with_dones() {
+        // 5 steps, 1 env
+        let rewards = Tensor::from_slice(&[1.0f32, 1.0, 1.0, 1.0, 1.0]).reshape([5, 1]);
+        let values = Tensor::zeros([5, 1], (Kind::Float, Device::Cpu));
+        // env resets at t=2
+        let dones = Tensor::from_slice(&[0.0f32, 0.0, 1.0, 0.0, 0.0]).reshape([5, 1]);
+        let last_value = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+
+        let advantages = compute_gae(&rewards, &values, &dones, &last_value, 0.9, 0.5);
+
+        let adv_data: Vec<f32> = advantages.flatten(0, -1).into();
+        assert!(adv_data[1] >= 1.0);
+        assert!(adv_data[2] >= 1.0);
+    }
+
+    #[test]
+    fn test_kl_divergence() {
+        let old_log_probs = Tensor::from_slice(&[-0.5f32, -1.0]).reshape([1, 2]);
+        let log_probs = Tensor::from_slice(&[-0.6f32, -1.1]).reshape([1, 2]);
+        let kl = kl_divergence(&log_probs, &old_log_probs);
+        let val = kl.double_value(&[]);
+        assert!((val - 0.1).abs() < 1e-6);
     }
 }

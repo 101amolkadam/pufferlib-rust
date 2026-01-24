@@ -27,7 +27,7 @@ This plan consolidates the strategic vision from `ROADMAP.md`, technical optimiz
 ## 🛤️ Milestone 3: Algorithmic Expansion (CURRENT)
 *Objective: Broaden utility beyond standard Discrete PPO.*
 
-- [ ] **Continuous Actions**: Full support for Gaussian policies and SAC.
+- [x] **Continuous Actions**: Full support for Gaussian policies and SAC.
 - [ ] **Advanced PPO Features**: Dual-clipping, adaptive KL, value clipping.
 - [ ] **Self-Play Wrapper**: Native support for ELO-based training.
 
