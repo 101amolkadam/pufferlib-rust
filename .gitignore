@@ -1,0 +1,10 @@
+/target
+/libtorch
+**/*.log
+build_err_*.txt
+check_*.txt
+errors.txt
+test_output*.txt
+clippy*.txt
+torch_*.txt
+checkpoints_test/

@@ -1,0 +1,44 @@
+[package]
+name = "pufferlib"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "High-performance reinforcement learning library"
+
+[features]
+default = []
+torch = ["tch"]
+
+[dependencies]
+# Core dependencies
+ndarray = { workspace = true }
+ndarray-rand = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Neural networks - optional, requires libtorch installed
+tch = { version = "0.17", optional = true }
+
+# Parallelism
+rayon = { workspace = true }
+crossbeam = { workspace = true }
+crossbeam-channel = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+ordered-float = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.5"

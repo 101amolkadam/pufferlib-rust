@@ -1,0 +1,25 @@
+[package]
+name = "pufferlib-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI for PufferLib reinforcement learning"
+
+[[bin]]
+name = "puffer"
+path = "src/main.rs"
+
+[features]
+default = []
+torch = ["pufferlib/torch", "tch"]
+
+[dependencies]
+pufferlib = { path = "../pufferlib" }
+pufferlib-envs = { path = "../pufferlib-envs" }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tch = { version = "0.17", optional = true }
+ndarray = { workspace = true }
+anyhow = { workspace = true }

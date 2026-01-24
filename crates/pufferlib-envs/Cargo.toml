@@ -1,0 +1,12 @@
+[package]
+name = "pufferlib-envs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Built-in environments for PufferLib"
+
+[dependencies]
+pufferlib = { path = "../pufferlib" }
+ndarray = { workspace = true }
+rand = { workspace = true }
