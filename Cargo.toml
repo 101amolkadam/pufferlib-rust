@@ -11,8 +11,13 @@ version = "0.1.0"
 edition = "2021"
 authors = ["PufferLib Contributors"]
 license = "MIT"
-repository = "https://github.com/pufferai/pufferlib-rust"
+repository = "https://github.com/101amolkadam/pufferlib-rust"
 description = "High-performance reinforcement learning library in Rust"
+keywords = ["reinforcement-learning", "rl", "machine-learning", "rust", "pufferlib"]
+categories = ["science", "mathematics", "artificial-intelligence"]
+readme = "README.md"
+documentation = "https://docs.rs/pufferlib-rust"
+
 
 [workspace.dependencies]
 # Core dependencies

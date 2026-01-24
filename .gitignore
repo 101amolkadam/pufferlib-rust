@@ -1,10 +1,25 @@
+# Rust standard
 /target
+Cargo.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
 /libtorch
-**/*.log
-build_err_*.txt
-check_*.txt
-errors.txt
-test_output*.txt
-clippy*.txt
-torch_*.txt
-checkpoints_test/
+/checkpoints_test
+/data
+
+# Logs and Debug
+*.log
+*.txt
+!README.md
+!LICENSE
+!Cargo.toml
+
+# OS files
+.DS_Store
+Thumbs.db

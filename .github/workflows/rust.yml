@@ -1,0 +1,36 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install LibTorch
+      run: |
+        wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcpu.zip
+        unzip libtorch-cxx11-abi-shared-with-deps-2.4.0+cpu.zip
+        echo "LIBTORCH=$GITHUB_WORKSPACE/libtorch" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
+    - name: Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build (no features)
+      run: cargo build --verbose
+
+    - name: Build (torch feature)
+      run: cargo build --verbose --features torch
+
+    - name: Run tests
+      run: cargo test --verbose --workspace

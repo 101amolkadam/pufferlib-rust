@@ -1,175 +1,88 @@
-# PufferLib Rust
+# 🐡 PufferLib Rust
 
-A high-performance reinforcement learning library implemented in pure Rust.
+[![Rust CI](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml/badge.svg)](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
 
-## Overview
+**High-performance reinforcement learning library implemented in pure Rust.**
 
-PufferLib Rust is a port of [PufferLib](https://github.com/pufferai/pufferlib), bringing high-performance RL training to the Rust ecosystem. It eliminates the need for Python while maintaining the core design principles of simplicity and speed.
+PufferLib Rust is a lightweight, high-performance port of [PufferLib](https://github.com/pufferai/pufferlib). It brings modern reinforcement learning to the Rust ecosystem, eliminating Python overhead while maintaining a clean and expressive API.
 
-## Features
+---
 
-- **Pure Rust** - No Python dependencies, minimal external libraries
-- **High Performance** - Native Rust speed with parallel environment execution
-- **Clean API** - Simple `PufferEnv` trait for custom environments
-- **PPO Training** - Complete PPO implementation with V-trace support
-- **Neural Networks** - MLP and LSTM policies via `tch-rs` (libtorch bindings)
+## 🔥 Features
 
-## Project Structure
+- 🏎️ **Native Performance**: Built from the ground up for speed with parallel environment execution.
+- 🦀 **Pure Rust**: No Python dependencies. Just standard Rust tooling.
+- 🧠 **Neural Network Support**: MLP and LSTM policies via `tch-rs` (LibTorch).
+- 🛠️ **Extensible API**: Simple `PufferEnv` trait for creating custom environments.
+- 📊 **Rich CLI**: Built-in tools for training, evaluation, and visualization.
 
-```
+---
+
+## 🏗️ Project Structure
+
+```text
 └── crates/
-    ├── pufferlib/           # Core library
-    │   ├── spaces/          # Observation/action spaces
-    │   ├── env/             # Environment trait and wrappers
-    │   ├── vector/          # Vectorized environments
-    │   ├── policy/          # Neural network policies
-    │   └── training/        # PPO training system
-    │
-    ├── pufferlib-envs/      # Built-in environments
-    │   ├── bandit.rs        # Multi-armed bandit
-    │   ├── cartpole.rs      # CartPole control
-    │   ├── squared.rs       # Grid navigation
-    │   └── memory.rs        # Sequence memory
-    │
-    └── pufferlib-cli/       # Command-line interface
-
+    ├── pufferlib/           # 🧩 Core engine: spaces, vectorization, PPO training
+    ├── pufferlib-envs/      # 🌍 Built-in environments (CartPole, Bandit, etc.)
+    └── pufferlib-cli/       # 💻 CLI for training and evaluation
 ```
 
-## Installation
+---
 
-### Prerequisites
+## 🚀 Getting Started
 
-1. **Rust** (1.70+): https://rustup.rs/
-2. **libtorch** (for neural networks):
-   ```bash
-   # Download from https://pytorch.org/get-started/locally/
-   # Set environment variables:
-   export LIBTORCH=/path/to/libtorch
-   export LD_LIBRARY_PATH=$LIBTORCH/lib:$LD_LIBRARY_PATH
-   ```
+### 1. Prerequisites
 
-### Building
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **LibTorch** (For Neural Networks):
+  ```powershell
+  # Windows (PowerShell) - Run the included setup script
+  .\setup_libtorch.ps1
+  ```
 
-```bash
-cd pufferlib-rust
-cargo build --release
-```
-
-## Usage
-
-### CLI
+### 2. Quick Training
 
 ```bash
-# Train on CartPole
+# Train on CartPole using the CLI
 cargo run --release --bin puffer -- train cartpole --timesteps 100000
-
-# Train on Bandit
-cargo run --release --bin puffer -- train bandit --timesteps 10000
-
-# Evaluate
-cargo run --release --bin puffer -- eval cartpole --episodes 10
-
-# List environments
-cargo run --release --bin puffer -- list
 ```
 
-### Library
+### 3. Usage as a Library
 
 ```rust
 use pufferlib::prelude::*;
 use pufferlib_envs::CartPole;
 
 fn main() {
-    // Create environment
     let mut env = CartPole::new();
-    
-    // Reset
     let (obs, _info) = env.reset(Some(42));
     
-    // Step
     let action = ArrayD::from_elem(IxDyn(&[1]), 1.0);
     let result = env.step(&action);
     
-    println!("Reward: {}", result.reward);
-    println!("Done: {}", result.done());
+    println!("Reward: {} | Done: {}", result.reward, result.done());
 }
 ```
 
-### Custom Environment
+---
 
-```rust
-use pufferlib::env::{PufferEnv, EnvInfo, StepResult};
-use pufferlib::spaces::{DynSpace, Discrete, Box as BoxSpace};
-use ndarray::{ArrayD, IxDyn};
+## 🛠️ Implementation Details
 
-struct MyEnv {
-    state: f32,
-}
+| Module | Description |
+| :--- | :--- |
+| **Spaces** | Discrete, MultiDiscrete, Box, and Dict support. |
+| **Vectorization** | Parallel (Rayon) and Serial execution wrappers. |
+| **Training** | Clean PPO implementation with V-trace advantage estimation. |
+| **Policies** | Configurable MLP and LSTM architectures. |
 
-impl PufferEnv for MyEnv {
-    fn observation_space(&self) -> DynSpace {
-        DynSpace::Box(BoxSpace::uniform(&[1], 0.0, 1.0))
-    }
-    
-    fn action_space(&self) -> DynSpace {
-        DynSpace::Discrete(Discrete::new(2))
-    }
-    
-    fn reset(&mut self, _seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
-        self.state = 0.0;
-        (ArrayD::from_elem(IxDyn(&[1]), self.state), EnvInfo::new())
-    }
-    
-    fn step(&mut self, action: &ArrayD<f32>) -> StepResult {
-        let a = action.iter().next().unwrap().round() as usize;
-        self.state = if a == 1 { 1.0 } else { 0.0 };
-        
-        StepResult {
-            observation: ArrayD::from_elem(IxDyn(&[1]), self.state),
-            reward: self.state,
-            terminated: true,
-            truncated: false,
-            info: EnvInfo::new(),
-        }
-    }
-}
-```
+---
 
-## Modules
+## 📜 License
 
-### Spaces
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- `Discrete` - Single integer actions
-- `MultiDiscrete` - Multiple integer actions
-- `Box` - Continuous bounded values
-- `Dict` - Dictionary of spaces
+## 🙏 Credits
 
-### Environments
-
-- `PufferEnv` trait - Core environment interface
-- `EpisodeStats` wrapper - Track episode return/length
-- `ClipAction` wrapper - Clip continuous actions
-
-### Vectorization
-
-- `Serial` - Sequential execution (debugging)
-- `Parallel` - Parallel execution with rayon
-
-### Policies
-
-- `MlpPolicy` - Multi-layer perceptron
-- `LstmPolicy` - LSTM for temporal dependencies
-
-### Training
-
-- `Trainer` - PPO training loop
-- `ExperienceBuffer` - Rollout storage
-- `compute_gae` / `compute_vtrace` - Advantage computation
-
-## License
-
-MIT License - See LICENSE file.
-
-## Credits
-
-Based on [PufferLib](https://puffer.ai) by Joseph Suarez.
+Based on the original [PufferLib](https://puffer.ai) by Joseph Suarez.
