@@ -19,7 +19,7 @@ pub struct MlpConfig {
 pub enum Activation {
     ReLU,
     Tanh,
-    GELU,
+    Gelu,
 }
 
 impl Default for MlpConfig {
@@ -70,7 +70,7 @@ impl MlpPolicy {
             match config.activation {
                 Activation::ReLU => encoder = encoder.add_fn(|x| x.relu()),
                 Activation::Tanh => encoder = encoder.add_fn(|x| x.tanh()),
-                Activation::GELU => encoder = encoder.add_fn(|x| x.gelu("none")),
+                Activation::Gelu => encoder = encoder.add_fn(|x| x.gelu("none")),
             }
 
             in_size = config.hidden_size;
@@ -120,11 +120,11 @@ impl MlpPolicy {
         for (name, mut var) in vs.variables() {
             if name.contains("weight") {
                 tch::no_grad(|| {
-                    let _ = var.copy_(&(Tensor::randn_like(&var) * 0.01));
+                    var.copy_(&(Tensor::randn_like(&var) * 0.01));
                 });
             } else if name.contains("bias") {
                 tch::no_grad(|| {
-                    let _ = var.zero_();
+                    var.zero_();
                 });
             }
         }
@@ -152,11 +152,7 @@ impl MlpPolicy {
 
     /// Get the number of parameters
     pub fn num_parameters(&self) -> i64 {
-        self.vs
-            .variables()
-            .iter()
-            .map(|(_, v)| v.numel() as i64)
-            .sum()
+        self.vs.variables().values().map(|v| v.numel() as i64).sum()
     }
 }
 

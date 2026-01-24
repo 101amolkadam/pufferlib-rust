@@ -56,12 +56,11 @@ impl Space for Box {
 
     fn sample<R: Rng>(&self, rng: &mut R) -> Self::Sample {
         let mut result = ArrayD::zeros(IxDyn(&self.shape));
-        for (_i, ((&l, &h), r)) in self
+        for ((&l, &h), r) in self
             .low
             .iter()
             .zip(self.high.iter())
             .zip(result.iter_mut())
-            .enumerate()
         {
             let dist = Uniform::new(l, h);
             *r = dist.sample(rng);
