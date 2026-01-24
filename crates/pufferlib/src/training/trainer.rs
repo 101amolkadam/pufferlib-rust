@@ -166,7 +166,11 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Checkpointing
-            if self.epoch > 0 && self.epoch.is_multiple_of(self.config.checkpoint_interval as u64) {
+            if self.epoch > 0
+                && self
+                    .epoch
+                    .is_multiple_of(self.config.checkpoint_interval as u64)
+            {
                 self.save_checkpoint();
             }
         }
