@@ -4,6 +4,7 @@ use super::buffer::ExperienceBuffer;
 use super::config::TrainerConfig;
 use super::ppo::{ppo_policy_loss, ppo_value_loss};
 use crate::policy::{HasVarStore, Policy};
+use crate::spaces::Space;
 use crate::vector::VecEnvBackend;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
@@ -43,11 +44,15 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
     /// Create a new trainer
     pub fn new(vecenv: V, mut policy: P, config: TrainerConfig, _device: Device) -> Self {
         let obs_space = vecenv.observation_space();
-        let _action_space = vecenv.action_space();
+        let action_space = vecenv.action_space();
 
         let obs_size = obs_space.shape().iter().product::<usize>() as i64;
-        // Assuming discrete action space for now as per PPO implementation details in buffer
-        let action_size = 1;
+        let action_size = match action_space {
+            crate::spaces::DynSpace::Discrete(_) => 1,
+            crate::spaces::DynSpace::MultiDiscrete(md) => md.nvec.len() as i64,
+            crate::spaces::DynSpace::Box(b) => b.shape().iter().product::<usize>() as i64,
+            _ => 1,
+        };
         let num_envs = vecenv.num_envs();
 
         let optimizer = nn::Adam::default()
@@ -196,9 +201,9 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 .to_device(self.config.device);
 
             // Get action from policy
-            let (logits, value, next_state) = self.policy.forward(&obs_tensor, &self.state);
-            let action = self.policy.sample_actions(&logits);
-            let log_prob = self.policy.log_probs(&logits, &action);
+            let (dist, value, next_state) = self.policy.forward(&obs_tensor, &self.state);
+            let action = dist.sample();
+            let log_prob = dist.log_prob(&action);
 
             // Convert action to ndarray
             let action_vec: Vec<f32> =
@@ -223,7 +228,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             self.buffer.add(
                 &obs_tensor,
-                &action.unsqueeze(-1).to_kind(Kind::Float),
+                &action.reshape([self.num_envs as i64, self.action_size]),
                 &log_prob,
                 &rewards,
                 &dones_tensor,
@@ -268,10 +273,13 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             let normalized_advantages = (advantages - &adv_mean) / (&adv_std + 1e-8);
 
             // Forward pass
-            let (logits, values, _) = self.policy.forward(&batch.observations, &None);
-            let actions = batch.actions.to_kind(Kind::Int64).squeeze_dim(-1);
-            let new_log_probs = self.policy.log_probs(&logits, &actions);
-            let entropy = self.policy.entropy(&logits);
+            let (dist, values, _) = self.policy.forward(&batch.observations, &None);
+            let actions = &batch.actions;
+
+            // For categorical log_probs expect Int64 in gather, for Gaussian expect Float.
+            // Distribution::log_prob handles conversion for discrete internally now.
+            let new_log_probs = dist.log_prob(actions);
+            let entropy = dist.entropy();
 
             // Compute losses
             let policy_loss = ppo_policy_loss(

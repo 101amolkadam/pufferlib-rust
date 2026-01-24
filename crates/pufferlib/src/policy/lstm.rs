@@ -68,7 +68,7 @@ impl LstmPolicy {
         &self,
         observations: &Tensor,
         hidden_state: Option<(Tensor, Tensor)>,
-    ) -> (Tensor, Tensor, (Tensor, Tensor)) {
+    ) -> (super::Distribution, Tensor, (Tensor, Tensor)) {
         let obs = observations.to_device(self.device);
         let batch_size = obs.size()[0];
 
@@ -103,7 +103,11 @@ impl LstmPolicy {
         let value = self.critic.forward(&hidden).squeeze_dim(-1);
 
         let (new_h, new_c) = new_state.0;
-        (logits, value, (new_h, new_c))
+        (
+            super::Distribution::Categorical { logits },
+            value,
+            (new_h, new_c),
+        )
     }
 
     /// Get variable store
@@ -131,7 +135,7 @@ impl Policy for LstmPolicy {
         &self,
         observations: &Tensor,
         state: &Option<Vec<Tensor>>,
-    ) -> (Tensor, Tensor, Option<Vec<Tensor>>) {
+    ) -> (super::Distribution, Tensor, Option<Vec<Tensor>>) {
         let hidden_state = if let Some(s) = state {
             if s.len() >= 2 {
                 Some((s[0].shallow_clone(), s[1].shallow_clone()))
@@ -142,8 +146,8 @@ impl Policy for LstmPolicy {
             None
         };
 
-        let (logits, value, (new_h, new_c)) = self.forward_with_state(observations, hidden_state);
-        (logits, value, Some(vec![new_h, new_c]))
+        let (dist, value, (new_h, new_c)) = self.forward_with_state(observations, hidden_state);
+        (dist, value, Some(vec![new_h, new_c]))
     }
 
     fn initial_state(&self, batch_size: i64) -> Option<Vec<Tensor>> {
@@ -182,9 +186,14 @@ mod tests {
     fn test_lstm_forward() {
         let policy = LstmPolicy::new(4, 2, 64, Device::Cpu);
         let obs = Tensor::randn([8, 4], (Kind::Float, Device::Cpu));
-        let (logits, value, state) = policy.forward(&obs, &None);
+        let (dist, value, state) = policy.forward(&obs, &None);
 
-        assert_eq!(logits.size(), [8, 2]);
+        match dist {
+            super::super::Distribution::Categorical { logits } => {
+                assert_eq!(logits.size(), [8, 2]);
+            }
+            _ => panic!("Expected categorical distribution"),
+        }
         assert_eq!(value.size(), [8]);
         assert!(state.is_some());
     }

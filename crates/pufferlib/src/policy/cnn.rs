@@ -123,16 +123,16 @@ impl Policy for CnnPolicy {
         &self,
         observations: &Tensor,
         _state: &Option<Vec<Tensor>>,
-    ) -> (Tensor, Tensor, Option<Vec<Tensor>>) {
+    ) -> (super::Distribution, Tensor, Option<Vec<Tensor>>) {
         // Preprocess: assume NCHW or NHWC? PufferLib usually standardizes.
         // Assume obs are [Batch, Channels, Height, Width] normalized float
         let x = observations.to_device(self.device);
         let feats = self.features.forward(&x);
 
         let logits = self.actor.forward(&feats);
-        let value = self.critic.forward(&feats);
+        let value = self.critic.forward(&feats).squeeze_dim(-1);
 
-        (logits, value, None)
+        (super::Distribution::Categorical { logits }, value, None)
     }
 
     fn initial_state(&self, _batch_size: i64) -> Option<Vec<Tensor>> {

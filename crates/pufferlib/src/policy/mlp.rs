@@ -1,7 +1,7 @@
 //! Multi-layer perceptron policy.
 
 use super::Policy;
-use crate::spaces::DynSpace;
+use crate::spaces::{DynSpace, Space};
 use tch::{nn, nn::Module, Device, Tensor};
 
 /// Configuration for MLP policy
@@ -44,13 +44,21 @@ pub struct MlpPolicy {
     critic: nn::Linear,
     /// Number of actions
     _num_actions: i64,
+    /// Whether this is a continuous policy
+    is_continuous: bool,
     /// Device
     device: Device,
 }
 
 impl MlpPolicy {
     /// Create a new MLP policy
-    pub fn new(obs_size: i64, num_actions: i64, config: MlpConfig, device: Device) -> Self {
+    pub fn new(
+        obs_size: i64,
+        num_actions: i64,
+        is_continuous: bool,
+        config: MlpConfig,
+        device: Device,
+    ) -> Self {
         let vs = nn::VarStore::new(device);
         let root = vs.root();
 
@@ -76,16 +84,22 @@ impl MlpPolicy {
             in_size = config.hidden_size;
         }
 
-        // Actor and critic heads
+        // Actor head
+        let actor_out = if is_continuous {
+            num_actions * 2 // Mean and log_std
+        } else {
+            num_actions
+        };
+
         let actor = nn::linear(
             &root / "actor",
             config.hidden_size,
-            num_actions,
+            actor_out,
             Default::default(),
         );
         let critic = nn::linear(&root / "critic", config.hidden_size, 1, Default::default());
 
-        // Initialize weights with orthogonal initialization
+        // Initialize weights
         Self::init_weights(&vs);
 
         Self {
@@ -94,11 +108,11 @@ impl MlpPolicy {
             actor,
             critic,
             _num_actions: num_actions,
+            is_continuous,
             device,
         }
     }
 
-    /// Create from observation and action spaces
     pub fn from_spaces(
         obs_space: &DynSpace,
         action_space: &DynSpace,
@@ -106,13 +120,14 @@ impl MlpPolicy {
         device: Device,
     ) -> Self {
         let obs_size = obs_space.shape().iter().product::<usize>() as i64;
-        let num_actions = match action_space {
-            DynSpace::Discrete(d) => d.n as i64,
-            DynSpace::MultiDiscrete(md) => md.nvec.iter().map(|&x| x as i64).sum(),
+        let (n_actions, is_cont) = match action_space {
+            DynSpace::Discrete(d) => (d.n as i64, false),
+            DynSpace::MultiDiscrete(md) => (md.nvec.iter().map(|&x| x as i64).sum(), false),
+            DynSpace::Box(b) => (b.shape().iter().product::<usize>() as i64, true),
             _ => panic!("Unsupported action space for MlpPolicy"),
         };
 
-        Self::new(obs_size, num_actions, config, device)
+        Self::new(obs_size, n_actions, is_cont, config, device)
     }
 
     /// Initialize weights with orthogonal initialization
@@ -161,12 +176,26 @@ impl Policy for MlpPolicy {
         &self,
         observations: &Tensor,
         _state: &Option<Vec<Tensor>>,
-    ) -> (Tensor, Tensor, Option<Vec<Tensor>>) {
+    ) -> (super::Distribution, Tensor, Option<Vec<Tensor>>) {
         let obs = observations.to_device(self.device);
         let hidden = self.encoder.forward(&obs);
-        let logits = self.actor.forward(&hidden);
+        let actor_out = self.actor.forward(&hidden);
         let value = self.critic.forward(&hidden).squeeze_dim(-1);
-        (logits, value, None)
+
+        let dist = if self.is_continuous {
+            let mean_logstd = actor_out.chunk(2, -1);
+            let mean = mean_logstd[0].shallow_clone();
+            // log_std clamped for stability
+            let log_std = mean_logstd[1].clamp(-20.0, 2.0);
+            super::Distribution::Gaussian {
+                mean,
+                std: log_std.exp(),
+            }
+        } else {
+            super::Distribution::Categorical { logits: actor_out }
+        };
+
+        (dist, value, None)
     }
 
     fn initial_state(&self, _batch_size: i64) -> Option<Vec<Tensor>> {
@@ -187,20 +216,26 @@ impl super::HasVarStore for MlpPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spaces::Space;
     use tch::Kind;
 
     #[test]
     fn test_mlp_creation() {
-        let _policy = MlpPolicy::new(4, 2, MlpConfig::default(), Device::Cpu);
+        let _policy = MlpPolicy::new(4, 2, false, MlpConfig::default(), Device::Cpu);
     }
 
     #[test]
     fn test_mlp_forward() {
-        let policy = MlpPolicy::new(4, 2, MlpConfig::default(), Device::Cpu);
+        let policy = MlpPolicy::new(4, 2, false, MlpConfig::default(), Device::Cpu);
         let obs = Tensor::randn([8, 4], (Kind::Float, Device::Cpu));
-        let (logits, value, _) = policy.forward(&obs, &None);
+        let (dist, value, _) = policy.forward(&obs, &None);
 
-        assert_eq!(logits.size(), [8, 2]);
+        match dist {
+            super::super::Distribution::Categorical { logits } => {
+                assert_eq!(logits.size(), [8, 2]);
+            }
+            _ => panic!("Expected categorical distribution"),
+        }
         assert_eq!(value.size(), [8]);
     }
 }

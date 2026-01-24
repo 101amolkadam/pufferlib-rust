@@ -16,26 +16,27 @@ This plan consolidates the strategic vision from `ROADMAP.md`, technical optimiz
 - [x] **Zero-Allocation Info**: Replace `HashMap` in `EnvInfo` with static fields and `SmallVec`.
 - [x] **Throughput Dashboard**: enhance CLI with real-time SPS (Steps Per Second) and latency metrics.
 
-## 🛤️ Milestone 2: The Advanced Emulation Layer
+## Track 2: The Advanced Emulation Layer (DONE)
 *Objective: Full compatibility with complex simulations.*
 
-- [ ] **Recursive Flattening**: Implement `SpaceTree` for deep `Dict/Tuple` support.
-- [ ] **Agent Population**: Implement `max_agents` padding and masking for MARL parity.
-- [ ] **Zero-Copy Unflattener**: High-speed structure restoration for policy networks.
+- [x] **Recursive Flattening**: Implement `SpaceTree` for deep `Dict/Tuple` support.
+- [x] **Agent Population**: Implement `max_agents` padding and masking for MARL parity.
+- [x] **State Serialization**: Deterministic environment state save/restore.
+- [x] **Zero-Copy Unflattener**: High-speed structure restoration for policy networks.
 
-## 🛤️ Milestone 3: Hardware Expansion & Parallelism
-*Objective: Push throughput and ease of deployment.*
+## 🛤️ Milestone 3: Algorithmic Expansion (CURRENT)
+*Objective: Broaden utility beyond standard Discrete PPO.*
 
-- [ ] **Staggered Batching**: Implement the Non-blocking `EnvPool-Lite` mechanism.
-- [ ] **Candle Backend**: Enable pure-Rust tensor operations (optional alternative to LibTorch).
-- [ ] **Shared Atomic Synchronization**: Eliminate OS mutexes in the vectorization hot-path.
-
-## 🛤️ Milestone 4: Ecosystem & Algorithmic Parity
-*Objective: Industry-standard feature set.*
-
-- [ ] **Dual-Clip PPO**: Port PufferLib's specialized PPO stability features.
+- [ ] **Continuous Actions**: Full support for Gaussian policies and SAC.
+- [ ] **Advanced PPO Features**: Dual-clipping, adaptive KL, value clipping.
 - [ ] **Self-Play Wrapper**: Native support for ELO-based training.
-- [ ] **Gymnasium Bridge**: standardized wrappers for existing Rust environments.
+
+## 🛤️ Milestone 4: Hardware & Ecosystem
+*Objective: High throughput and industry integrations.*
+
+- [ ] **Candle Backend**: Enable pure-Rust tensor operations.
+- [ ] **GPU-Native Envs**: Integration with CUDA-accelerated environments.
+- [ ] **Gymnasium Bridge**: Standardized wrappers for existing Rust environments.
 
 ---
 
