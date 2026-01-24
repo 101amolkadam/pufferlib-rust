@@ -17,6 +17,8 @@ keywords = ["reinforcement-learning", "rl", "machine-learning", "rust", "pufferl
 categories = ["science", "mathematics", "artificial-intelligence"]
 readme = "README.md"
 documentation = "https://docs.rs/pufferlib-rust"
+homepage = "https://github.com/101amolkadam/pufferlib-rust"
+repository = "https://github.com/101amolkadam/pufferlib-rust"
 
 
 [workspace.dependencies]

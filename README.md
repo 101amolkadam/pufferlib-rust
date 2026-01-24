@@ -1,88 +1,141 @@
 # 🐡 PufferLib Rust
 
 [![Rust CI](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml/badge.svg)](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
+[![Docs](https://img.shields.io/badge/docs-rs-green)](https://docs.rs/pufferlib-rust)
 
-**High-performance reinforcement learning library implemented in pure Rust.**
+**High-performance, pure-Rust reinforcement learning library optimized for research and production scale.**
 
-PufferLib Rust is a lightweight, high-performance port of [PufferLib](https://github.com/pufferai/pufferlib). It brings modern reinforcement learning to the Rust ecosystem, eliminating Python overhead while maintaining a clean and expressive API.
+PufferLib Rust is the evolution of reinforcement learning for the Rust ecosystem. Designed for researchers who need native performance and developers who demand type-safe production systems.
+
+---
+
+## 📖 Table of Contents
+- [🔥 Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🚀 Getting Started](#-getting-started)
+- [🛠️ Detailed Usage](#️-detailed-usage)
+- [📊 Performance](#-performance)
+- [🗺️ Roadmap](#️-roadmap)
+- [📜 License](#-license)
 
 ---
 
 ## 🔥 Features
 
-- 🏎️ **Native Performance**: Built from the ground up for speed with parallel environment execution.
-- 🦀 **Pure Rust**: No Python dependencies. Just standard Rust tooling.
-- 🧠 **Neural Network Support**: MLP and LSTM policies via `tch-rs` (LibTorch).
-- 🛠️ **Extensible API**: Simple `PufferEnv` trait for creating custom environments.
-- 📊 **Rich CLI**: Built-in tools for training, evaluation, and visualization.
+| Feature | Description | Status |
+| :--- | :--- | :---: |
+| **Pure Rust** | Zero Python dependencies. Fast, stable, and safe. | ✅ |
+| **Rayon Vectorization** | Multi-threaded environment execution with work-stealing. | ✅ |
+| **Off-Policy RL** | Robust PPO implementation with V-trace corrections. | ✅ |
+| **Neural Backends** | High-speed tensor operations via LibTorch (`tch-rs`). | ✅ |
+| **LSTM Policies** | Full support for temporal dependency tracking. | ✅ |
+| **Modular Spaces** | Discrete, Box, Dict, and Multi-discrete actions/obs. | ✅ |
 
 ---
 
-## 🏗️ Project Structure
+## 🏗️ Architecture
 
-```text
-└── crates/
-    ├── pufferlib/           # 🧩 Core engine: spaces, vectorization, PPO training
-    ├── pufferlib-envs/      # 🌍 Built-in environments (CartPole, Bandit, etc.)
-    └── pufferlib-cli/       # 💻 CLI for training and evaluation
+PufferLib Rust utilizes a modular architecture that decouples environment logic from training dynamics.
+
+```mermaid
+graph LR
+    subgraph Environments
+        E1[CartPole]
+        E2[Bandit]
+        E3[Custom]
+    end
+    
+    subgraph Vectorization
+        V[Parallel Wrapper]
+    end
+    
+    subgraph Training
+        B[Exp Buffer]
+        T[PPO Trainer]
+    end
+    
+    subgraph Policy
+        P[Linear/LSTM]
+    end
+
+    Environments --> V
+    V --> B
+    B --> T
+    T --> P
+    P --> V
 ```
+
+> [!TIP]
+> For a technical deep-dive, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
-
-- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **LibTorch** (For Neural Networks):
-  ```powershell
-  # Windows (PowerShell) - Run the included setup script
-  .\setup_libtorch.ps1
-  ```
-
-### 2. Quick Training
-
-```bash
-# Train on CartPole using the CLI
-cargo run --release --bin puffer -- train cartpole --timesteps 100000
+### 1. Installation
+Add `pufferlib` to your `Cargo.toml`:
+```toml
+[dependencies]
+pufferlib = { git = "https://github.com/101amolkadam/pufferlib-rust" }
 ```
 
-### 3. Usage as a Library
+### 2. Native Dependencies
+Requires **LibTorch**. Use our automated setup script:
+```powershell
+# Windows
+.\setup_libtorch.ps1
+```
 
-```rust
-use pufferlib::prelude::*;
-use pufferlib_envs::CartPole;
-
-fn main() {
-    let mut env = CartPole::new();
-    let (obs, _info) = env.reset(Some(42));
-    
-    let action = ArrayD::from_elem(IxDyn(&[1]), 1.0);
-    let result = env.step(&action);
-    
-    println!("Reward: {} | Done: {}", result.reward, result.done());
-}
+### 3. Quick Run
+Train a baseline agent on CartPole:
+```bash
+cargo run --release --bin puffer -- train cartpole --timesteps 1000000
 ```
 
 ---
 
-## 🛠️ Implementation Details
+## 🛠️ Detailed Usage
 
-| Module | Description |
-| :--- | :--- |
-| **Spaces** | Discrete, MultiDiscrete, Box, and Dict support. |
-| **Vectorization** | Parallel (Rayon) and Serial execution wrappers. |
-| **Training** | Clean PPO implementation with V-trace advantage estimation. |
-| **Policies** | Configurable MLP and LSTM architectures. |
+### Custom Environments
+Implement the `PufferEnv` trait to bring your own simulations to life:
+```rust
+impl PufferEnv for MySimulator {
+    fn observation_space(&self) -> DynSpace { ... }
+    fn step(&mut self, action: &ArrayD<f32>) -> StepResult { ... }
+    // Full implementation in crates/pufferlib-envs
+}
+```
+
+### Off-Policy Correction (V-trace)
+PufferLib uses V-trace to handle the discrepancy between the behavior policy and the target policy, essential for high-throughput vectorized training.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] **v0.2.0**: Support for Multi-Agent Reinforcement Learning (MARL).
+- [ ] **v0.3.0**: Add SAC (Soft Actor-Critic) implementation.
+- [ ] **v0.4.0**: Integration with Bevy for 3D RL environments.
+- [ ] **v1.0.0**: Stable API and full crates.io release.
+
+---
+
+## 🤝 Community
+
+We welcome contributions! Please see:
+- [CONTRIBUTING.md](CONTRIBUTING.md) for developer guidelines.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
 
 ## 🙏 Credits
 
-Based on the original [PufferLib](https://puffer.ai) by Joseph Suarez.
+Inspired by the original [PufferLib](https://puffer.ai) project. Designed for performance, safety, and scale.

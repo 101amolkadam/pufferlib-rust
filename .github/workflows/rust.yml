@@ -2,9 +2,9 @@ name: Rust CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,23 +14,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install LibTorch
-      run: |
-        wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcpu.zip
-        unzip libtorch-cxx11-abi-shared-with-deps-2.4.0+cpu.zip
-        echo "LIBTORCH=$GITHUB_WORKSPACE/libtorch" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
 
-    - name: Rust Toolchain
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install LibTorch
+        run: |
+          wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcpu.zip
+          unzip libtorch-cxx11-abi-shared-with-deps-2.4.0+cpu.zip
+          echo "LIBTORCH=$GITHUB_WORKSPACE/libtorch" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
-    - name: Build (no features)
-      run: cargo build --verbose
+      - name: Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Build (torch feature)
-      run: cargo build --verbose --features torch
+      - name: Build (no features)
+        run: cargo build --verbose
 
-    - name: Run tests
-      run: cargo test --verbose --workspace
+      - name: Build (torch feature)
+        run: cargo build --verbose --features torch
+
+      - name: Run tests
+        run: cargo test --verbose --workspace
+
+      - name: Fmt Check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --features torch -- -D warnings
+
+      - name: Doc Check
+        run: cargo doc --workspace --no-deps
