@@ -7,7 +7,6 @@ use crate::env::{EnvInfo, PufferEnv};
 use crate::spaces::DynSpace;
 use ndarray::{Array2, ArrayD, IxDyn};
 use rayon::prelude::*;
-use std::sync::{Arc, Mutex};
 
 /// Parallel vectorization backend using rayon
 pub struct Parallel<E: PufferEnv> {
