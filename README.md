@@ -118,6 +118,9 @@ Train a baseline agent on CartPole:
 cargo run --release --bin puffer -- train cartpole --timesteps 1000000
 ```
 
+> [!TIP]
+> **New in v0.1.0**: The CLI now includes a real-time throughput dashboard with a progress bar and live SPS (Steps Per Second) metrics.
+
 ### Performance & Benchmarking
 
 PufferLib Rust is built for extreme throughput. Our goal is to achieve bit-for-bit parity with the original PufferLib while reducing latency by 2-5x.

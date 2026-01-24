@@ -12,9 +12,9 @@ This plan consolidates the strategic vision from `ROADMAP.md`, technical optimiz
 ## 🛤️ Milestone 1: Performance Baseline & Refactor
 *Objective: Solidify the foundation before expanding features.*
 
-- [ ] **Monomorphization**: Refactor `Serial<E>` and `Parallel<E>` to eliminate `Box<dyn PufferEnv>` and vtable overhead.
-- [ ] **Zero-Allocation Info**: Replace `HashMap` in `EnvInfo` with static fields and `SmallVec`.
-- [ ] **Throughput Dashboard**: enhance CLI with real-time SPS (Steps Per Second) and latency metrics.
+- [x] **Monomorphization**: Refactor `Serial<E>` and `Parallel<E>` to eliminate `Box<dyn PufferEnv>` and vtable overhead.
+- [x] **Zero-Allocation Info**: Replace `HashMap` in `EnvInfo` with static fields and `SmallVec`.
+- [x] **Throughput Dashboard**: enhance CLI with real-time SPS (Steps Per Second) and latency metrics.
 
 ## 🛤️ Milestone 2: The Advanced Emulation Layer
 *Objective: Full compatibility with complex simulations.*

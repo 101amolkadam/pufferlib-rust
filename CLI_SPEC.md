@@ -9,7 +9,7 @@ Train a new policy on a specific environment.
 - **Arguments**:
     - `<ENV>`: The environment name (e.g., `cartpole`, `bandit`).
 - **Flags**:
-    - `--timesteps <N>`: Total timesteps to train (default: 1M).
+    - `--timesteps <N>`: Total timesteps to train (default: 100K).
     - `--batch-size <N>`: Rollout batch size (default: 2048).
     - `--lr <F>`: Learning rate.
     - `--use-vtrace`: Enable off-policy correction.
