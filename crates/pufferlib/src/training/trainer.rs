@@ -152,7 +152,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Logging
-            if self.epoch % 10 == 0 {
+            if self.epoch.is_multiple_of(10) {
                 let elapsed = self.start_time.elapsed().as_secs_f64();
                 let sps = self.global_step as f64 / elapsed;
                 if self.progress.is_none() {
@@ -166,7 +166,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Checkpointing
-            if self.epoch > 0 && self.epoch % self.config.checkpoint_interval as u64 == 0 {
+            if self.epoch > 0 && self.epoch.is_multiple_of(self.config.checkpoint_interval as u64) {
                 self.save_checkpoint();
             }
         }
