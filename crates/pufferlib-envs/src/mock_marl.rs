@@ -2,7 +2,7 @@
 
 use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::{Action, EnvInfo, Observation, RawPufferEnv, RawStepResult};
-use pufferlib::spaces::{Box as BoxSpace, Dict, DynSpace};
+use pufferlib::spaces::{Box as BoxSpace, DynSpace};
 use std::collections::HashMap;
 
 /// A simple multi-agent environment where agents move on a 1D line

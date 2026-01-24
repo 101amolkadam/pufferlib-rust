@@ -1,7 +1,6 @@
 //! Space metadata for recursive flattening/unflattening.
 
 use super::{DynSpace, Space};
-use std::collections::HashMap;
 
 /// Tree structure representing the nested layout of a complex space
 #[derive(Clone, Debug)]
@@ -9,7 +8,7 @@ pub enum SpaceTree {
     /// Leaf node representing a primitive space (Box, Discrete, etc.)
     Leaf {
         /// Type of the primitive space
-        space: DynSpace,
+        space: Box<DynSpace>,
         /// Flattened offset in the destination buffer
         offset: usize,
         /// Size of the flattened representation
@@ -42,7 +41,7 @@ impl SpaceTree {
             DynSpace::Box(s) => {
                 let size = s.num_elements();
                 SpaceTree::Leaf {
-                    space: space.clone(),
+                    space: Box::new(space.clone()),
                     offset,
                     size,
                 }
@@ -50,7 +49,7 @@ impl SpaceTree {
             DynSpace::Discrete(_) | DynSpace::MultiDiscrete(_) => {
                 let size = space.shape().iter().product();
                 SpaceTree::Leaf {
-                    space: space.clone(),
+                    space: Box::new(space.clone()),
                     offset,
                     size,
                 }

@@ -1,4 +1,4 @@
-use super::{EnvInfo, Observation, PufferEnv, RawPufferEnv, RawStepResult, StepResult};
+use super::{EnvInfo, Observation, PufferEnv, RawPufferEnv, StepResult};
 use crate::spaces::{DynSpace, SpaceTree};
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
@@ -13,8 +13,6 @@ pub struct EmulationLayer<E: RawPufferEnv> {
     obs_tree: SpaceTree,
     /// Metadata for action unflattening
     action_tree: SpaceTree,
-    /// Pre-allocated buffer for flattening
-    obs_buffer: Vec<f32>,
 }
 
 impl<E: RawPufferEnv> EmulationLayer<E> {
@@ -27,15 +25,11 @@ impl<E: RawPufferEnv> EmulationLayer<E> {
         let obs_tree = SpaceTree::from_space(&obs_space);
         let action_tree = SpaceTree::from_space(&action_space);
 
-        let flat_obs_size = obs_tree.size();
-        let obs_buffer = vec![0.0; flat_obs_size];
-
         Self {
             env,
             num_agents: max_agents,
             obs_tree,
             action_tree,
-            obs_buffer,
         }
     }
 
