@@ -14,13 +14,27 @@ PufferLib Rust is the high-bandwidth link between complex simulations and neural
 ## 📖 Table of Contents
 - [🔥 Features](#-features)
 - [🏗️ Architecture](#️-architecture)
+- [🏗️ Why Rust for RL?](#️-why-rust-for-rl)
+- [🏗️ Architecture](#️-architecture)
 - [🚀 Getting Started](#-getting-started)
 - [🛠️ Detailed Usage](#️-detailed-usage)
-- [📊 Performance](#-performance)
+- [📊 Performance & Benchmarking](#-performance--benchmarking)
 - [🗺️ Roadmap](#️-roadmap)
+- [📜 Technical Specification](SPECIFICATION.md)
 - [📜 License](#-license)
 
 ---
+
+## 🦀 Why Rust for RL?
+
+While Python is the standard for RL research, it suffers from several bottlenecks that Rust solves natively:
+
+- **True Parallelism**: Rust's thread-safe model allows us to step thousands of environments simultaneously without the memory overhead of Python's `multiprocessing` or the limitations of the Global Interpreter Lock (GIL).
+- **Embedded Deployment**: PufferLib Rust can be compiled into a single static binary, making it ideal for RL on edge devices, robots, or in-game AI without a heavy Python runtime.
+- **Memory Safety**: Our Emulation Layer uses Rust's ownership system to ensure zero-copy data flow from simulation to neural network, eliminating the large-scale "pickling" overhead common in process-based vectorization.
+
+---
+ Linda
 
 ## 🔥 Features
 
@@ -104,22 +118,18 @@ Train a baseline agent on CartPole:
 cargo run --release --bin puffer -- train cartpole --timesteps 1000000
 ```
 
----
+### Performance & Benchmarking
 
-## 🛠️ Detailed Usage
+PufferLib Rust is built for extreme throughput. Our goal is to achieve bit-for-bit parity with the original PufferLib while reducing latency by 2-5x.
 
-### Custom Environments
-Implement the `PufferEnv` trait to bring your own simulations to life:
-```rust
-impl PufferEnv for MySimulator {
-    fn observation_space(&self) -> DynSpace { ... }
-    fn step(&mut self, action: &ArrayD<f32>) -> StepResult { ... }
-    // Full implementation in crates/pufferlib-envs
-}
-```
+| Environment | Python (Steps/s) | Rust (Steps/s) | Speedup |
+| :--- | :---: | :---: | :---: |
+| CartPole | TBD | TBD | -- |
+| Bandit | TBD | TBD | -- |
+| Squared | TBD | TBD | -- |
 
-### Off-Policy Correction (V-trace)
-PufferLib uses V-trace to handle the discrepancy between the behavior policy and the target policy, essential for high-throughput vectorized training.
+> [!NOTE]
+> We are currently preparing standardized benchmarks. If you're interested in contributing to our profiling suite, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

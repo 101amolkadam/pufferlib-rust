@@ -18,10 +18,15 @@ This document outlines the strategic direction and planned features for the Puff
 *Goal: Broaden the library's utility beyond standard PPO.*
 
 - [ ] **Continuous Actions**: Full support for Gaussian policies and SAC (Soft Actor-Critic).
-- [ ] **PuffeRL+**: Port advanced PPO features from Python (Adaptive KL, Dual Clip).
-- [ ] **Protein Algorithm**: Native Rust implementation of PufferLib's auto-tuning engine.
-- [ ] **Self-Play**: Built-in wrappers for historical self-play and Elo rating.
-- [ ] **Curriculum Learning**: Dynamic environment parameter scaling.
+- [ ] **Advanced PPO Features**:
+    - [ ] Dual-clipping (standard in PufferLib).
+    - [ ] Adaptive KL penalty tracking.
+    - [ ] Value function clipping.
+- [ ] **Protein (Auto-Tune)**: Native Rust implementation of PufferLib's Bayesian HPO system.
+- [ ] **Self-Play & ELO**: 
+    - [ ] Historical self-play wrappers.
+    - [ ] Multi-agent rating systems (ELO/Glicko).
+    - [ ] Curriculum scaling based on agent skill.
 
 ## 🟠 Phase 3: Hardware & Performance
 *Goal: Push the boundaries of RL throughput.*

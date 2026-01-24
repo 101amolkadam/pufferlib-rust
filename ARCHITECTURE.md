@@ -6,15 +6,34 @@ This document provides a deep dive into the internal design and implementation o
 
 PufferLib Rust is designed to be a high-performance, modular framework for reinforcement learning. It follows a "Trait-first" philosophy, allowing developers to swap out environments, vectorization strategies, and training algorithms with minimal friction.
 
-### Core Components
+### System Components
 
 ```mermaid
 graph TD
-    A["PufferEnv (Trait)"] --> B["Vectorized Env (Serial/Parallel)"]
-    B --> C["Experience Buffer"]
-    C --> D["Trainer (PPO)"]
-    D --> E["Neural Network (tch-rs)"]
-    E --> B
+    subgraph Emulation[Emulation Layer]
+        A[PufferEnv Trait] --> S[Space Flattening]
+        S --> P[Agent Padding]
+    end
+
+    subgraph Vector[Vectorization Layer]
+        V[VecEnv Backend] --> SER[Serial]
+        V --> PAR[Parallel Rayon]
+    end
+
+    subgraph Train[Training Engine]
+        B[Exp Buffer] --> PPO[PPO + V-trace]
+        PPO --> OPT[Optimizer]
+    end
+
+    subgraph Network[Policy Network]
+        L[LibTorch] --> MLP[MlpPolicy]
+        L --> Rec[LSTMPolicy]
+    end
+
+    Emulation --> Vector
+    Vector  --> Train
+    Train   --> Network
+    Network --> Vector
 ```
 
 ## 🧩 Key Modules
