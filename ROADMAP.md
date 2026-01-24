@@ -6,7 +6,7 @@ This document outlines the strategic direction and planned features for the Puff
 *Goal: Achieve feature parity with PufferLib's core emulation logic.*
 
 - [x] **Base Traits**: Robust `PufferEnv` and `VecEnv` abstractions.
-- [x] **Vectorization**: Serial and Parallel (Rayon-based) backends.
+- [x] **Vectorization**: Serial and Parallel (Lock-Free Rayon) backends.
 - [x] **Basic Spaces**: Discrete, MultiDiscrete, Box, and Dict support.
 - [ ] **Advanced Emulation**:
     - [ ] Variable agent population padding/masking.

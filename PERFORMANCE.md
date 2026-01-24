@@ -31,7 +31,8 @@ cargo bench
 ## 4. Established Baselines (Milestone 1)
 - **Status**: Monomorphized backends deployed.
 - **Optimization**: Zero-dispatch vtable overhead established for `VecEnv` and `PufferEnv`.
+- **Parallelism**: Lock-free backend enabled (eliminated `Mutex` contention in hot path).
 - **Memory**: `SmallVec` integration for zero-allocation metrics path.
 - **Monitoring**: TUI Dashboard with real-time SPS tracking functional.
 
-Current macro-benchmarks indicate stable performance on standard benchmarks (CartPole, Bandit).
+Current macro-benchmarks indicate stable performance on standard benchmarks (CartPole, Bandit) with minimal CPU overhead.
