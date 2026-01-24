@@ -3,9 +3,9 @@
 use ndarray::{Array2, ArrayD, IxDyn};
 use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
 use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
-use rand_chacha::ChaCha8Rng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
 /// Squared grid navigation environment
@@ -233,7 +233,8 @@ impl PufferEnv for Squared {
 
     fn set_state(&mut self, state: &[u8]) {
         let decoded: SquaredState = serde_json::from_slice(state).unwrap();
-        self.grid = Array2::from_shape_vec((self.grid_size, self.grid_size), decoded.grid_flat).unwrap();
+        self.grid =
+            Array2::from_shape_vec((self.grid_size, self.grid_size), decoded.grid_flat).unwrap();
         self.agent_pos = decoded.agent_pos;
         self.targets = decoded.targets;
         self.tick = decoded.tick;

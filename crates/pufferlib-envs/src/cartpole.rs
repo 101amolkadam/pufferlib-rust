@@ -3,8 +3,8 @@
 use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
 use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
-use rand_chacha::ChaCha8Rng;
 use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
@@ -256,17 +256,17 @@ mod tests {
     fn test_cartpole_serialization() {
         let mut env = CartPole::new();
         env.reset(Some(42));
-        
+
         for _ in 0..10 {
             env.step(&ArrayD::from_elem(IxDyn(&[1]), 1.0));
         }
-        
+
         let state = env.state();
         let res1 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 0.0));
-        
+
         env.set_state(&state);
         let res2 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 0.0));
-        
+
         assert_eq!(res1.observation, res2.observation);
         assert_eq!(res1.reward, res2.reward);
     }
