@@ -1,11 +1,9 @@
 # 🐡 PufferLib Rust
 
-[![Rust CI](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml/badge.svg)](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml)
+[![Rust CI](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
 [![Docs](https://img.shields.io/badge/docs-rs-green)](https://docs.rs/pufferlib-rust)
-
-[![Rust CI](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/101amolkadam/pufferlib-rust/actions/workflows/rust.yml)
 
 **High-performance, pure-Rust reinforcement learning library optimized for research and production scale.**
 
