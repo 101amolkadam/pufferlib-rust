@@ -47,6 +47,18 @@ Following PufferLib 3.x, our "Ocean" equivalent (`pufferlib-envs`) must prioriti
 
 ---
 
-## 5. Neural Specification
-### 5.1 Structure Reconstitution
-- The Emulation Layer must provide a `SpaceTree` that the `Policy` can use to "unflatten" the raw input tensor into structured sub-tensors (e.g., separating image data from scalar status).
+### 5.2 Weight Initialization
+- **Requirement**: Orthogonal initialization with gains tailored to activation functions (ReLU, Tanh, Gelu).
+- **Bias**: Biases must be initialized to 0.0 unless specified for specific architectures (e.g., LSTM forget gate bias).
+
+---
+
+## 6. Staggered Batching (EnvPool-Lite)
+To maximize GPU utilization, PufferLib Rust should implement a non-blocking rollout collection.
+
+### 6.1 Asynchronous Collection
+- **Mechanism**: Use a pool of `M` environments to fill a batch of `N` (where `M > N`).
+- **Wait Policy**: The trainer does not wait for all environments to step. It pulls the first `N` available results, updating the behavior policy asynchronously.
+
+### 6.2 Shared Flag Synchronization
+- **Optimization**: Use atomic flags (`std::sync::atomic`) instead of OS-level mutexes for thread synchronization between environment workers and the training master.

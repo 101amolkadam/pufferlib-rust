@@ -141,11 +141,11 @@ See the full [ROADMAP.md](ROADMAP.md) for details.
 
 ---
 
-## 🤝 Community
+## 🤝 Community & Support
 
-We welcome contributions! Please see:
-- [CONTRIBUTING.md](CONTRIBUTING.md) for developer guidelines.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
+- **Discord**: Join the [PufferAI Discord](https://discord.gg/puffer) for research discussions.
+- **Original Project**: [PufferAI/PufferLib](https://github.com/PufferAI/PufferLib) (Python/C).
+- **Issues**: Use GitHub Issues for bugs and RFCs (Request for Comments).
 
 ---
 
@@ -157,4 +157,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 🙏 Credits
 
-Inspired by the original [PufferLib](https://puffer.ai) project. Designed for performance, safety, and scale.
+Inspired by the original [PufferLib](https://puffer.ai) project by JOSEPH SUAREZ. This port aims to provide a high-fidelity Rust implementation of the PufferLib architecture.
