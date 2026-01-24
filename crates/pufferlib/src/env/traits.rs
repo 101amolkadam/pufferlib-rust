@@ -11,7 +11,7 @@ pub struct EnvInfo {
     /// Episode length (if done)
     pub episode_length: Option<f32>,
     /// Custom metrics (kept minimal for performance)
-    pub extra: Vec<(&'static str, f32)>,
+    pub extra: smallvec::SmallVec<[(&'static str, f32); 4]>,
 }
 
 impl EnvInfo {

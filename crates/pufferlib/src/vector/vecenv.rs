@@ -86,16 +86,14 @@ pub trait VecEnvBackend: Send {
 }
 
 /// Main vectorized environment struct
-pub struct VecEnv {
-    backend: Box<dyn VecEnvBackend>,
+pub struct VecEnv<B: VecEnvBackend> {
+    backend: B,
 }
 
-impl VecEnv {
+impl<B: VecEnvBackend> VecEnv<B> {
     /// Create from a backend
-    pub fn from_backend<B: VecEnvBackend + 'static>(backend: B) -> Self {
-        Self {
-            backend: Box::new(backend),
-        }
+    pub fn from_backend(backend: B) -> Self {
+        Self { backend }
     }
 
     /// Get observation space
@@ -129,7 +127,7 @@ impl VecEnv {
     }
 }
 
-impl VecEnvBackend for VecEnv {
+impl<B: VecEnvBackend> VecEnvBackend for VecEnv<B> {
     fn observation_space(&self) -> DynSpace {
         self.backend.observation_space()
     }

@@ -152,46 +152,66 @@ fn train(
     match env_name {
         "bandit" => {
             let make_env = || Bandit::new(4);
-            let envs = if num_envs > 1 {
-                VecEnv::from_backend(Parallel::new(make_env, num_envs))
-            } else {
-                VecEnv::from_backend(Serial::new(make_env, num_envs))
-            };
-
-            let obs_size = envs.observation_space().shape()[0];
             let num_actions = 4i64;
 
-            if policy_type == "lstm" {
-                let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
-                tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                run_training_thread(envs, policy, trainer_config, device)?;
+            if num_envs > 1 {
+                let envs = VecEnv::from_backend(Parallel::new(make_env, num_envs));
+                let obs_size = envs.observation_space().shape()[0];
+                if policy_type == "lstm" {
+                    let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
+                    tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                } else {
+                    let config = MlpConfig::default();
+                    let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
+                    tracing::info!(params = policy.num_parameters(), "Created MLP policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                }
             } else {
-                let config = MlpConfig::default();
-                let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
-                tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                run_training_thread(envs, policy, trainer_config, device)?;
+                let envs = VecEnv::from_backend(Serial::new(make_env, num_envs));
+                let obs_size = envs.observation_space().shape()[0];
+                if policy_type == "lstm" {
+                    let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
+                    tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                } else {
+                    let config = MlpConfig::default();
+                    let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
+                    tracing::info!(params = policy.num_parameters(), "Created MLP policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                }
             }
         }
         "cartpole" => {
             let make_env = || CartPole::new();
-            let envs = if num_envs > 1 {
-                VecEnv::from_backend(Parallel::new(make_env, num_envs))
-            } else {
-                VecEnv::from_backend(Serial::new(make_env, num_envs))
-            };
-
-            let obs_size = envs.observation_space().shape()[0];
             let num_actions = 2i64;
 
-            if policy_type == "lstm" {
-                let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
-                tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                run_training_thread(envs, policy, trainer_config, device)?;
+            if num_envs > 1 {
+                let envs = VecEnv::from_backend(Parallel::new(make_env, num_envs));
+                let obs_size = envs.observation_space().shape()[0];
+                if policy_type == "lstm" {
+                    let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
+                    tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                } else {
+                    let config = MlpConfig::default();
+                    let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
+                    tracing::info!(params = policy.num_parameters(), "Created MLP policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                }
             } else {
-                let config = MlpConfig::default();
-                let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
-                tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                run_training_thread(envs, policy, trainer_config, device)?;
+                let envs = VecEnv::from_backend(Serial::new(make_env, num_envs));
+                let obs_size = envs.observation_space().shape()[0];
+                if policy_type == "lstm" {
+                    let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
+                    tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                } else {
+                    let config = MlpConfig::default();
+                    let policy = MlpPolicy::new(obs_size as i64, num_actions, config, device);
+                    tracing::info!(params = policy.num_parameters(), "Created MLP policy");
+                    run_training_thread(envs, policy, trainer_config, device)?;
+                }
             }
         }
         _ => {
@@ -206,13 +226,14 @@ fn train(
 }
 
 #[cfg(feature = "torch")]
-fn run_training_thread<P>(
-    envs: pufferlib::vector::VecEnv,
+fn run_training_thread<B, P>(
+    envs: pufferlib::vector::VecEnv<B>,
     policy: P,
     config: pufferlib::training::TrainerConfig,
     device: tch::Device,
 ) -> Result<()>
 where
+    B: pufferlib::vector::VecEnvBackend + 'static,
     P: pufferlib::policy::Policy + pufferlib::policy::HasVarStore + 'static,
 {
     let mut trainer = pufferlib::training::Trainer::new(envs, policy, config, device);
@@ -349,6 +370,42 @@ fn demo(env_name: &str, steps: usize) -> Result<()> {
                     step % 4,
                     result.reward
                 );
+            }
+        }
+        "memory" => {
+            let mut env = Memory::new(3, 0);
+            env.reset(Some(42));
+
+            for step in 0..steps {
+                let action = ArrayD::from_elem(IxDyn(&[1]), (step % 2) as f32);
+                let result = env.step(&action);
+
+                if let Some(render) = env.render() {
+                    println!("Step {}: \n{}", step, render);
+                }
+
+                if result.done() {
+                    tracing::info!(step, "Episode ended, resetting");
+                    env.reset(None);
+                }
+            }
+        }
+        "squared" => {
+            let mut env = Squared::new(2);
+            env.reset(Some(42));
+
+            for step in 0..steps {
+                let action = ArrayD::from_elem(IxDyn(&[1]), (step % 8) as f32);
+                let result = env.step(&action);
+
+                if let Some(render) = env.render() {
+                    println!("Step {}: \n{}", step, render);
+                }
+
+                if result.done() {
+                    tracing::info!(step, "Episode ended, resetting");
+                    env.reset(None);
+                }
             }
         }
         _ => {

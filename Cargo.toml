@@ -52,3 +52,5 @@ anyhow = "1.0"
 # Utilities
 num-traits = "0.2"
 ordered-float = "4.5"
+smallvec = { version = "1.13", features = ["serde"] }
+indicatif = "0.17"

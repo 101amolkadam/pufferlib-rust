@@ -5,6 +5,7 @@ use super::config::TrainerConfig;
 use super::ppo::{ppo_policy_loss, ppo_value_loss};
 use crate::policy::{HasVarStore, Policy};
 use crate::vector::VecEnvBackend;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
 use tch::{nn, nn::OptimizerConfig, Device, Kind, Tensor};
 
@@ -34,6 +35,8 @@ pub struct Trainer<P: Policy + HasVarStore, V: VecEnvBackend> {
     action_size: i64,
     /// Current policy state (for recurrent policies)
     state: Option<Vec<Tensor>>,
+    /// Progress bar
+    progress: Option<ProgressBar>,
 }
 
 impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
@@ -62,6 +65,19 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
         let state = policy.initial_state(num_envs as i64);
 
+        let progress = if config.total_timesteps > 0 {
+            let pb = ProgressBar::new(config.total_timesteps);
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
+                    .unwrap()
+                    .progress_chars("#>-"),
+            );
+            Some(pb)
+        } else {
+            None
+        };
+
         Self {
             config,
             vecenv,
@@ -75,6 +91,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             obs_size,
             action_size,
             state,
+            progress,
         }
     }
 
@@ -126,25 +143,36 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             self.epoch += 1;
 
-            // Logging
-            if self.epoch.is_multiple_of(10) {
+            // Increment global step and update progress bar
+            if let Some(ref pb) = self.progress {
+                pb.set_position(self.global_step);
                 let elapsed = self.start_time.elapsed().as_secs_f64();
                 let sps = self.global_step as f64 / elapsed;
-                tracing::info!(
-                    step = self.global_step,
-                    epoch = self.epoch,
-                    sps = sps,
-                    "Training progress"
-                );
+                pb.set_message(format!("SPS: {:.2}", sps));
+            }
+
+            // Logging
+            if self.epoch % 10 == 0 {
+                let elapsed = self.start_time.elapsed().as_secs_f64();
+                let sps = self.global_step as f64 / elapsed;
+                if self.progress.is_none() {
+                    tracing::info!(
+                        step = self.global_step,
+                        epoch = self.epoch,
+                        sps = sps,
+                        "Training progress"
+                    );
+                }
             }
 
             // Checkpointing
-            if self
-                .epoch
-                .is_multiple_of(self.config.checkpoint_interval as u64)
-            {
+            if self.epoch > 0 && self.epoch % self.config.checkpoint_interval as u64 == 0 {
                 self.save_checkpoint();
             }
+        }
+
+        if let Some(ref pb) = self.progress {
+            pb.finish_with_message("Training complete");
         }
 
         Ok(())
