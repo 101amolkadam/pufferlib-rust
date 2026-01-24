@@ -264,7 +264,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
         for epoch in 0..self.config.update_epochs {
             let mut epoch_kls = Vec::new();
-            
+
             for _ in 0..self.config.num_minibatches {
                 let indices = self.buffer.get_minibatch_indices(minibatch_size);
                 let batch = self.buffer.get_minibatch(&indices);
@@ -326,7 +326,10 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 for var in self.policy.var_store().variables().values() {
                     let grad = var.grad();
                     if grad.defined() {
-                        global_norm += grad.pow_tensor_scalar(2.0).sum(Kind::Float).double_value(&[]);
+                        global_norm += grad
+                            .pow_tensor_scalar(2.0)
+                            .sum(Kind::Float)
+                            .double_value(&[]);
                     }
                 }
                 global_norm = global_norm.sqrt();

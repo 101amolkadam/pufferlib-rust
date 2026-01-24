@@ -168,7 +168,8 @@ pub fn ppo_dual_clip_policy_loss(
     let dual_clipped = dual_clip_coef * advantages;
 
     // loss = max(ppo_loss, dual_clip * adv) for neg advantages
-    let final_loss: Tensor = (1.0f64 - &is_neg_adv) * &ppo_loss + &is_neg_adv * ppo_loss.max_other(&dual_clipped);
+    let final_loss: Tensor =
+        (1.0f64 - &is_neg_adv) * &ppo_loss + &is_neg_adv * ppo_loss.max_other(&dual_clipped);
 
     -final_loss.mean(Kind::Float)
 }
