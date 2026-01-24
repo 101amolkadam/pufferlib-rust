@@ -35,9 +35,13 @@ impl RawPufferEnv for IdentityContinuous {
     }
 
     fn reset(&mut self, _seed: Option<u64>) -> (Observation, EnvInfo) {
-        self.target = (0..self.size).map(|_| rand::random::<f32>() * 2.0 - 1.0).collect();
+        self.target = (0..self.size)
+            .map(|_| rand::random::<f32>() * 2.0 - 1.0)
+            .collect();
         (
-            Observation::Array(ArrayD::from_shape_vec(IxDyn(&[self.size]), self.target.clone()).unwrap()),
+            Observation::Array(
+                ArrayD::from_shape_vec(IxDyn(&[self.size]), self.target.clone()).unwrap(),
+            ),
             EnvInfo::new(),
         )
     }
@@ -54,12 +58,16 @@ impl RawPufferEnv for IdentityContinuous {
         }
 
         let reward = -dist_sq;
-        
+
         // New target
-        self.target = (0..self.size).map(|_| rand::random::<f32>() * 2.0 - 1.0).collect();
-        
+        self.target = (0..self.size)
+            .map(|_| rand::random::<f32>() * 2.0 - 1.0)
+            .collect();
+
         RawStepResult {
-            observation: Observation::Array(ArrayD::from_shape_vec(IxDyn(&[self.size]), self.target.clone()).unwrap()),
+            observation: Observation::Array(
+                ArrayD::from_shape_vec(IxDyn(&[self.size]), self.target.clone()).unwrap(),
+            ),
             reward,
             terminated: false,
             truncated: false,

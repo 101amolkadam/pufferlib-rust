@@ -197,7 +197,8 @@ fn train(
                     run_training_thread(envs, policy, trainer_config, device)?;
                 } else {
                     let config = MlpConfig::default();
-                    let policy = MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
+                    let policy =
+                        MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
                     run_training_thread(envs, policy, trainer_config, device)?;
                 }
@@ -210,7 +211,8 @@ fn train(
                     run_training_thread(envs, policy, trainer_config, device)?;
                 } else {
                     let config = MlpConfig::default();
-                    let policy = MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
+                    let policy =
+                        MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
                     run_training_thread(envs, policy, trainer_config, device)?;
                 }
