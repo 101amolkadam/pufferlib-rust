@@ -53,7 +53,7 @@ impl Space for Tuple {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spaces::{Discrete, Box as BoxSpace};
+    use crate::spaces::{Box as BoxSpace, Discrete};
 
     #[test]
     fn test_tuple_creation() {

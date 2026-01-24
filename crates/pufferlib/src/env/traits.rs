@@ -211,7 +211,7 @@ pub trait PufferEnv: Send {
 }
 
 /// Trait for environments that return structured (unflattened) data.
-/// 
+///
 /// The `EmulationLayer` wraps these to provide the standard `PufferEnv` interface.
 pub trait RawPufferEnv: Send {
     /// Get the observation space

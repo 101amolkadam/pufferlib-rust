@@ -1,8 +1,8 @@
 //! Mock multi-agent environment for testing emulation layer features.
 
+use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::{Action, EnvInfo, Observation, RawPufferEnv, RawStepResult};
 use pufferlib::spaces::{Box as BoxSpace, Dict, DynSpace};
-use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
 
 /// A simple multi-agent environment where agents move on a 1D line
@@ -38,9 +38,12 @@ impl RawPufferEnv for MockMarl {
     fn reset(&mut self, _seed: Option<u64>) -> (Observation, EnvInfo) {
         self.agent_positions = vec![0.0; self.num_agents];
         self.tick = 0;
-        
+
         // Return first agent's observation as a "default" reset for single-agent compatibility
-        (Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 0.0)), EnvInfo::new())
+        (
+            Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 0.0)),
+            EnvInfo::new(),
+        )
     }
 
     fn step(&mut self, action: &Action) -> RawStepResult {
@@ -48,12 +51,15 @@ impl RawPufferEnv for MockMarl {
             let move_val = a.iter().next().unwrap();
             self.agent_positions[0] += move_val;
         }
-        
+
         self.tick += 1;
         let done = self.tick >= self.max_ticks;
 
         RawStepResult {
-            observation: Observation::Array(ArrayD::from_elem(IxDyn(&[1]), self.agent_positions[0])),
+            observation: Observation::Array(ArrayD::from_elem(
+                IxDyn(&[1]),
+                self.agent_positions[0],
+            )),
             reward: 1.0,
             terminated: done,
             truncated: false,
@@ -70,10 +76,7 @@ impl RawPufferEnv for MockMarl {
         (0..self.num_agents as u32).filter(|i| i % 2 == 0).collect()
     }
 
-    fn multi_step(
-        &mut self,
-        actions: &HashMap<u32, Action>,
-    ) -> HashMap<u32, RawStepResult> {
+    fn multi_step(&mut self, actions: &HashMap<u32, Action>) -> HashMap<u32, RawStepResult> {
         let mut results = HashMap::new();
         self.tick += 1;
         let done = self.tick >= self.max_ticks;
@@ -84,13 +87,19 @@ impl RawPufferEnv for MockMarl {
                 self.agent_positions[id as usize] += move_val;
             }
 
-            results.insert(id, RawStepResult {
-                observation: Observation::Array(ArrayD::from_elem(IxDyn(&[1]), self.agent_positions[id as usize])),
-                reward: 1.0,
-                terminated: done,
-                truncated: false,
-                info: EnvInfo::new(),
-            });
+            results.insert(
+                id,
+                RawStepResult {
+                    observation: Observation::Array(ArrayD::from_elem(
+                        IxDyn(&[1]),
+                        self.agent_positions[id as usize],
+                    )),
+                    reward: 1.0,
+                    terminated: done,
+                    truncated: false,
+                    info: EnvInfo::new(),
+                },
+            );
         }
 
         results

@@ -23,10 +23,10 @@ impl<E: RawPufferEnv> EmulationLayer<E> {
         let max_agents = env.num_agents();
         let obs_space = env.observation_space();
         let action_space = env.action_space();
-        
+
         let obs_tree = SpaceTree::from_space(&obs_space);
         let action_tree = SpaceTree::from_space(&action_space);
-        
+
         let flat_obs_size = obs_tree.size();
         let obs_buffer = vec![0.0; flat_obs_size];
 
@@ -82,16 +82,18 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
         // Multi-agent case: action is [num_agents, action_size]
         let action_size = self.action_tree.size();
         let mut structured_actions = HashMap::new();
-        
+
         for i in 0..self.num_agents {
             let start = i * action_size;
             let slice = action.as_slice().unwrap();
-            let agent_action = self.action_tree.unflatten(&slice[start..start + action_size]);
+            let agent_action = self
+                .action_tree
+                .unflatten(&slice[start..start + action_size]);
             structured_actions.insert(i as u32, agent_action);
         }
 
         let res_map = self.env.multi_step(&structured_actions);
-        
+
         let flat_obs_size = self.obs_tree.size();
         let mut combined_obs = ArrayD::from_elem(IxDyn(&[self.num_agents, flat_obs_size]), 0.0);
         let mut total_reward = 0.0;
@@ -104,12 +106,14 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
                 let mut slice = combined_obs.slice_mut(ndarray::s![i as usize, ..]);
                 let flat = self.flatten_observation(&res.observation);
                 slice.assign(&flat.view().to_shape((flat_obs_size,)).unwrap());
-                
+
                 total_reward += res.reward;
                 terminated |= res.terminated;
                 truncated |= res.truncated;
                 // Merge info if needed (simplified for now)
-                if i == 0 { combined_info = res.info.clone(); }
+                if i == 0 {
+                    combined_info = res.info.clone();
+                }
             }
         }
 
@@ -155,10 +159,18 @@ mod tests {
         impl RawPufferEnv for ComplexEnv {
             fn observation_space(&self) -> DynSpace {
                 let mut dict = HashMap::new();
-                dict.insert("a".to_string(), DynSpace::Box(BoxSpace::uniform(&[2], 0.0, 1.0)));
-                dict.insert("b".to_string(), DynSpace::Tuple(Tuple::new(vec![
-                    DynSpace::Box(BoxSpace::uniform(&[1], 0.0, 1.0))
-                ])));
+                dict.insert(
+                    "a".to_string(),
+                    DynSpace::Box(BoxSpace::uniform(&[2], 0.0, 1.0)),
+                );
+                dict.insert(
+                    "b".to_string(),
+                    DynSpace::Tuple(Tuple::new(vec![DynSpace::Box(BoxSpace::uniform(
+                        &[1],
+                        0.0,
+                        1.0,
+                    ))])),
+                );
                 DynSpace::Dict(Dict::new(dict))
             }
             fn action_space(&self) -> DynSpace {
@@ -166,10 +178,17 @@ mod tests {
             }
             fn reset(&mut self, _seed: Option<u64>) -> (Observation, EnvInfo) {
                 let mut map = HashMap::new();
-                map.insert("a".to_string(), Observation::Array(ArrayD::from_elem(IxDyn(&[2]), 0.5)));
-                map.insert("b".to_string(), Observation::Tuple(vec![
-                    Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 1.0))
-                ]));
+                map.insert(
+                    "a".to_string(),
+                    Observation::Array(ArrayD::from_elem(IxDyn(&[2]), 0.5)),
+                );
+                map.insert(
+                    "b".to_string(),
+                    Observation::Tuple(vec![Observation::Array(ArrayD::from_elem(
+                        IxDyn(&[1]),
+                        1.0,
+                    ))]),
+                );
                 (Observation::Dict(map), EnvInfo::new())
             }
             fn step(&mut self, _action: &Action) -> RawStepResult {
@@ -179,7 +198,7 @@ mod tests {
 
         let mut emulated = EmulationLayer::new(ComplexEnv);
         let (obs, _) = emulated.reset(None);
-        
+
         assert_eq!(obs.len(), 3);
         assert_eq!(obs[0], 0.5);
         assert_eq!(obs[1], 0.5);
@@ -202,12 +221,17 @@ mod tests {
         fn reset(&mut self, _seed: Option<u64>) -> (Observation, EnvInfo) {
             self.agent_positions = vec![0.0; self.num_agents];
             self.tick = 0;
-            (Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 0.0)), EnvInfo::new())
+            (
+                Observation::Array(ArrayD::from_elem(IxDyn(&[1]), 0.0)),
+                EnvInfo::new(),
+            )
         }
         fn step(&mut self, _action: &Action) -> RawStepResult {
             unimplemented!()
         }
-        fn num_agents(&self) -> usize { self.num_agents }
+        fn num_agents(&self) -> usize {
+            self.num_agents
+        }
         fn active_agents(&self) -> Vec<u32> {
             (0..self.num_agents as u32).filter(|i| i % 2 == 0).collect()
         }
@@ -217,13 +241,19 @@ mod tests {
                 if let Some(Action::Array(a)) = actions.get(&id) {
                     self.agent_positions[id as usize] += a[0];
                 }
-                results.insert(id, RawStepResult {
-                    observation: Observation::Array(ArrayD::from_elem(IxDyn(&[1]), self.agent_positions[id as usize])),
-                    reward: 1.0,
-                    terminated: false,
-                    truncated: false,
-                    info: EnvInfo::new(),
-                });
+                results.insert(
+                    id,
+                    RawStepResult {
+                        observation: Observation::Array(ArrayD::from_elem(
+                            IxDyn(&[1]),
+                            self.agent_positions[id as usize],
+                        )),
+                        reward: 1.0,
+                        terminated: false,
+                        truncated: false,
+                        info: EnvInfo::new(),
+                    },
+                );
             }
             results
         }
@@ -231,12 +261,16 @@ mod tests {
 
     #[test]
     fn test_marl_emulation() {
-        let mock = MockMarl { num_agents: 4, agent_positions: vec![0.0; 4], tick: 0 };
+        let mock = MockMarl {
+            num_agents: 4,
+            agent_positions: vec![0.0; 4],
+            tick: 0,
+        };
         let mut emulated = EmulationLayer::new(mock);
-        
+
         let actions = ArrayD::from_elem(IxDyn(&[4, 1]), 1.0);
         let res = emulated.step(&actions);
-        
+
         assert_eq!(res.observation.shape(), &[4, 1]);
         let obs_data = res.observation.as_slice().unwrap();
         assert_eq!(obs_data[0], 1.0); // Agent 0 active

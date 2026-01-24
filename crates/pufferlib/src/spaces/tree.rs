@@ -58,7 +58,7 @@ impl SpaceTree {
             DynSpace::Dict(s) => {
                 let mut children = Vec::new();
                 let mut current_offset = offset;
-                
+
                 // Sort keys for deterministic flattening
                 let mut keys: Vec<_> = s.spaces.keys().cloned().collect();
                 keys.sort();
@@ -130,7 +130,9 @@ impl SpaceTree {
         match self {
             SpaceTree::Leaf { offset, size, .. } => {
                 let vec = buf[*offset..*offset + *size].to_vec();
-                crate::env::Action::Array(ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&[*size]), vec).unwrap())
+                crate::env::Action::Array(
+                    ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&[*size]), vec).unwrap(),
+                )
             }
             SpaceTree::Dict { children, .. } => {
                 let mut map = std::collections::HashMap::new();
