@@ -25,16 +25,16 @@ impl<E: RawPufferEnv> EmulationLayer<E> {
         // Discover all agent types and their spaces
         for i in 0..num_agents as u32 {
             let agent_type = env.agent_type(i);
-            if !agent_trees.contains_key(&agent_type) {
+            let trees = agent_trees.entry(agent_type.clone()).or_insert_with(|| {
                 let obs_space = env.observation_space_for(&agent_type);
                 let act_space = env.action_space_for(&agent_type);
 
                 let obs_tree = SpaceTree::from_space(&obs_space);
                 let act_tree = SpaceTree::from_space(&act_space);
 
-                max_obs_size = max_obs_size.max(obs_tree.size());
-                agent_trees.insert(agent_type, (obs_tree, act_tree));
-            }
+                (obs_tree, act_tree)
+            });
+            max_obs_size = max_obs_size.max(trees.0.size());
         }
 
         Self {

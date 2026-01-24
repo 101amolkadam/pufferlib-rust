@@ -18,6 +18,12 @@ impl HeteroMock {
     }
 }
 
+impl Default for HeteroMock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RawPufferEnv for HeteroMock {
     fn observation_space(&self) -> DynSpace {
         // This is a dummy for heterogeneous case
