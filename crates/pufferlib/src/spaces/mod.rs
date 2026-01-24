@@ -6,11 +6,15 @@ mod r#box;
 mod dict;
 mod discrete;
 mod multi_discrete;
+mod tree;
+mod tuple;
 
 pub use dict::Dict;
 pub use discrete::Discrete;
 pub use multi_discrete::MultiDiscrete;
 pub use r#box::Box;
+pub use tree::SpaceTree;
+pub use tuple::Tuple;
 
 use ndarray::ArrayD;
 use rand::Rng;
@@ -42,6 +46,7 @@ pub enum DynSpace {
     MultiDiscrete(MultiDiscrete),
     Box(Box),
     Dict(Dict),
+    Tuple(Tuple),
 }
 
 impl DynSpace {
@@ -52,6 +57,7 @@ impl DynSpace {
             DynSpace::MultiDiscrete(s) => s.shape().to_vec(),
             DynSpace::Box(s) => s.shape().to_vec(),
             DynSpace::Dict(s) => s.shape().to_vec(),
+            DynSpace::Tuple(s) => s.shape().to_vec(),
         }
     }
 
@@ -73,10 +79,18 @@ impl DynSpace {
             DynSpace::Box(s) => s.sample(rng),
             DynSpace::Dict(s) => {
                 let sample = s.sample(rng);
-                let flattened: Vec<f32> = sample
-                    .into_iter()
-                    .flat_map(|(_, v)| v.into_iter())
-                    .collect();
+                let mut flattened = Vec::new();
+                for (_, v) in sample {
+                    flattened.extend(v.into_iter());
+                }
+                ArrayD::from_shape_vec(ndarray::IxDyn(&[flattened.len()]), flattened).unwrap()
+            }
+            DynSpace::Tuple(s) => {
+                let sample = s.sample(rng);
+                let mut flattened = Vec::new();
+                for v in sample {
+                    flattened.extend(v.into_iter());
+                }
                 ArrayD::from_shape_vec(ndarray::IxDyn(&[flattened.len()]), flattened).unwrap()
             }
         }
@@ -100,7 +114,8 @@ impl DynSpace {
                 s.contains(&v)
             }
             DynSpace::Box(s) => s.contains(value),
-            DynSpace::Dict(_) => false, // TODO: Support nested dicts if needed
+            DynSpace::Dict(_) => false, // TODO: Support recursive contains
+            DynSpace::Tuple(_) => false,
         }
     }
 }

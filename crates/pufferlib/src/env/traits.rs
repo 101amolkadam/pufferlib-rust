@@ -58,11 +58,63 @@ pub struct StepResult {
     pub info: EnvInfo,
 }
 
+/// Structured observation for complex spaces
+#[derive(Clone, Debug)]
+pub enum Observation {
+    /// Primitive array
+    Array(ArrayD<f32>),
+    /// Dictionary of observations
+    Dict(std::collections::HashMap<String, Observation>),
+    /// Tuple of observations
+    Tuple(Vec<Observation>),
+}
+
+/// Structured action for complex spaces
+#[derive(Clone, Debug)]
+pub enum Action {
+    /// Primitive array
+    Array(ArrayD<f32>),
+    /// Dictionary of actions
+    Dict(std::collections::HashMap<String, Action>),
+    /// Tuple of actions
+    Tuple(Vec<Action>),
+}
+
+/// Result from a raw environment step (unflattened)
+#[derive(Clone, Debug)]
+pub struct RawStepResult {
+    /// Structured observation
+    pub observation: Observation,
+    /// Reward received
+    pub reward: f32,
+    /// Whether episode terminated
+    pub terminated: bool,
+    /// Whether episode truncated
+    pub truncated: bool,
+    /// Additional info
+    pub info: EnvInfo,
+}
+
 impl StepResult {
     /// Check if episode is done (terminated or truncated)
     pub fn done(&self) -> bool {
         self.terminated || self.truncated
     }
+}
+
+/// Result from a multi-agent environment step
+#[derive(Clone, Debug)]
+pub struct MultiAgentStepResult {
+    /// Observations for each agent
+    pub observations: std::collections::HashMap<u32, ArrayD<f32>>,
+    /// Rewards for each agent
+    pub rewards: std::collections::HashMap<u32, f32>,
+    /// Done flags for each agent
+    pub terminated: std::collections::HashMap<u32, bool>,
+    /// Truncated flags for each agent
+    pub truncated: std::collections::HashMap<u32, bool>,
+    /// Additional info
+    pub info: EnvInfo,
 }
 
 /// Core trait for PufferLib environments.
@@ -123,6 +175,17 @@ pub trait PufferEnv: Send {
     /// StepResult containing observation, reward, done flags, and info
     fn step(&mut self, action: &ArrayD<f32>) -> StepResult;
 
+    /// Optional: Take a multi-agent step
+    ///
+    /// # Arguments
+    /// * `actions` - Map of agent ID to action
+    fn multi_step(
+        &mut self,
+        _actions: &std::collections::HashMap<u32, ArrayD<f32>>,
+    ) -> MultiAgentStepResult {
+        unimplemented!("multi_step not implemented for this environment");
+    }
+
     /// Optional: Render the environment
     fn render(&self) -> Option<String> {
         None
@@ -131,12 +194,65 @@ pub trait PufferEnv: Send {
     /// Optional: Close the environment and free resources
     fn close(&mut self) {}
 
-    /// Get the number of agents (default 1 for single-agent)
+    /// Get total number of agents (max population)
     fn num_agents(&self) -> usize {
         1
     }
 
+    /// Get IDs of currently active agents
+    fn active_agents(&self) -> Vec<u32> {
+        vec![0]
+    }
+
     /// Check if environment is done and needs reset
+    fn is_done(&self) -> bool {
+        false
+    }
+}
+
+/// Trait for environments that return structured (unflattened) data.
+/// 
+/// The `EmulationLayer` wraps these to provide the standard `PufferEnv` interface.
+pub trait RawPufferEnv: Send {
+    /// Get the observation space
+    fn observation_space(&self) -> DynSpace;
+
+    /// Get the action space
+    fn action_space(&self) -> DynSpace;
+
+    /// Reset the environment
+    fn reset(&mut self, seed: Option<u64>) -> (Observation, EnvInfo);
+
+    /// Take a structured step
+    fn step(&mut self, action: &Action) -> RawStepResult;
+
+    /// Get total number of agents
+    fn num_agents(&self) -> usize {
+        1
+    }
+
+    /// Get IDs of currently active agents
+    fn active_agents(&self) -> Vec<u32> {
+        vec![0]
+    }
+
+    /// Take a multi-agent structured step
+    fn multi_step(
+        &mut self,
+        _actions: &std::collections::HashMap<u32, Action>,
+    ) -> std::collections::HashMap<u32, RawStepResult> {
+        unimplemented!("multi_step not implemented");
+    }
+
+    /// Optional: Render the environment
+    fn render(&self) -> Option<String> {
+        None
+    }
+
+    /// Optional: Close the environment
+    fn close(&mut self) {}
+
+    /// Check if environment is done
     fn is_done(&self) -> bool {
         false
     }
