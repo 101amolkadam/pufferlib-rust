@@ -6,5 +6,5 @@
 mod traits;
 mod wrappers;
 
-pub use traits::{PufferEnv, EnvInfo, StepResult};
-pub use wrappers::{EpisodeStats, ClipAction};
+pub use traits::{EnvInfo, PufferEnv, StepResult};
+pub use wrappers::{ClipAction, EpisodeStats};

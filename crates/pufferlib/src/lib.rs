@@ -30,10 +30,10 @@
 //! let result = env.step(&action);
 //! ```
 
-pub mod spaces;
 pub mod env;
-pub mod vector;
+pub mod spaces;
 pub mod utils;
+pub mod vector;
 
 // Optional modules that require tch (libtorch)
 #[cfg(feature = "torch")]
@@ -43,14 +43,14 @@ pub mod training;
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::env::{EnvInfo, PufferEnv, StepResult};
     pub use crate::spaces::*;
-    pub use crate::env::{PufferEnv, EnvInfo, StepResult};
     pub use crate::vector::{VecEnv, VecEnvConfig};
-    
+
     #[cfg(feature = "torch")]
-    pub use crate::policy::{Policy, HasVarStore, MlpPolicy, CnnPolicy, LstmPolicy};
+    pub use crate::policy::{CnnPolicy, HasVarStore, LstmPolicy, MlpPolicy, Policy};
     #[cfg(feature = "torch")]
-    pub use crate::training::{Trainer, TrainerConfig, ExperienceBuffer};
+    pub use crate::training::{ExperienceBuffer, Trainer, TrainerConfig};
 }
 
 /// Library version
@@ -61,22 +61,22 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub enum PufferError {
     #[error("Environment error: {0}")]
     EnvError(String),
-    
+
     #[error("Shape mismatch: expected {expected:?}, got {actual:?}")]
     ShapeMismatch {
         expected: Vec<usize>,
         actual: Vec<usize>,
     },
-    
+
     #[error("Invalid action: {0}")]
     InvalidAction(String),
-    
+
     #[error("Training error: {0}")]
     TrainingError(String),
-    
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    
+
     #[cfg(feature = "torch")]
     #[error("Tensor error: {0}")]
     TensorError(#[from] tch::TchError),

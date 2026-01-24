@@ -1,10 +1,10 @@
 //! Memory sequence environment.
 
 use ndarray::{ArrayD, IxDyn};
-use pufferlib::env::{PufferEnv, EnvInfo, StepResult};
-use pufferlib::spaces::{DynSpace, Discrete, Box as BoxSpace};
-use rand::{Rng, SeedableRng};
+use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
+use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 /// Memory environment
 ///
@@ -40,7 +40,7 @@ impl Memory {
             rng: StdRng::from_entropy(),
         }
     }
-    
+
     /// Create with default delay
     pub fn with_length(mem_length: usize) -> Self {
         Self::new(mem_length, 0)
@@ -51,41 +51,45 @@ impl PufferEnv for Memory {
     fn observation_space(&self) -> DynSpace {
         DynSpace::Box(BoxSpace::uniform(&[1], -1.0, 1.0))
     }
-    
+
     fn action_space(&self) -> DynSpace {
         DynSpace::Discrete(Discrete::new(2))
     }
-    
+
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         if let Some(s) = seed {
             self.rng = StdRng::seed_from_u64(s);
         }
-        
+
         // Generate random solution sequence
         self.solution = (0..self.horizon)
             .map(|i| {
                 if i < self.mem_length {
-                    if self.rng.gen::<bool>() { 1.0 } else { 0.0 }
+                    if self.rng.gen::<bool>() {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 } else {
-                    -1.0  // Placeholder
+                    -1.0 // Placeholder
                 }
             })
             .collect();
-        
+
         self.submission = vec![-1.0; self.horizon];
         self.tick = 0;
-        
+
         let obs = ArrayD::from_elem(IxDyn(&[1]), self.solution[0]);
         (obs, EnvInfo::new())
     }
-    
+
     fn step(&mut self, action: &ArrayD<f32>) -> StepResult {
         let action_val = action.iter().next().unwrap().round();
         assert!(action_val == 0.0 || action_val == 1.0);
-        
+
         let mut reward = 0.0;
         let mut ob = 0.0;
-        
+
         // During sequence presentation
         if self.tick < self.mem_length {
             if self.tick + 1 < self.mem_length {
@@ -96,7 +100,7 @@ impl PufferEnv for Memory {
                 reward = 1.0;
             }
         }
-        
+
         // During reproduction phase
         if self.tick >= self.mem_length + self.mem_delay {
             let idx = self.tick - self.mem_length - self.mem_delay;
@@ -106,10 +110,10 @@ impl PufferEnv for Memory {
                 self.submission[self.tick] = action_val;
             }
         }
-        
+
         self.tick += 1;
         let terminal = self.tick >= self.horizon;
-        
+
         let info = if terminal {
             // Check if entire sequence matches
             let correct = (0..self.mem_length).all(|i| {
@@ -120,9 +124,9 @@ impl PufferEnv for Memory {
         } else {
             EnvInfo::new()
         };
-        
+
         let obs = ArrayD::from_elem(IxDyn(&[1]), ob);
-        
+
         StepResult {
             observation: obs,
             reward,
@@ -131,29 +135,37 @@ impl PufferEnv for Memory {
             info,
         }
     }
-    
+
     fn render(&self) -> Option<String> {
-        let solution_str: String = self.solution.iter()
+        let solution_str: String = self
+            .solution
+            .iter()
             .take(self.mem_length)
             .map(|&v| if v == 1.0 { '1' } else { '0' })
             .collect();
-        
-        let submission_str: String = self.submission.iter()
+
+        let submission_str: String = self
+            .submission
+            .iter()
             .skip(self.mem_length + self.mem_delay)
             .take(self.mem_length)
             .map(|&v| {
-                if v == 1.0 { '1' } 
-                else if v == 0.0 { '0' } 
-                else { '_' }
+                if v == 1.0 {
+                    '1'
+                } else if v == 0.0 {
+                    '0'
+                } else {
+                    '_'
+                }
             })
             .collect();
-        
+
         Some(format!(
             "Solution:   {}\nSubmission: {}\nStep: {}/{}",
             solution_str, submission_str, self.tick, self.horizon
         ))
     }
-    
+
     fn is_done(&self) -> bool {
         self.tick >= self.horizon
     }
@@ -162,29 +174,29 @@ impl PufferEnv for Memory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_memory_creation() {
         let env = Memory::new(3, 2);
-        assert_eq!(env.horizon, 8);  // 2*3 + 2
+        assert_eq!(env.horizon, 8); // 2*3 + 2
     }
-    
+
     #[test]
     fn test_memory_reset() {
         let mut env = Memory::new(3, 0);
         let (obs, _) = env.reset(Some(42));
-        
+
         assert_eq!(obs.len(), 1);
     }
-    
+
     #[test]
     fn test_memory_seed_consistency() {
         let mut env1 = Memory::new(5, 5);
         let mut env2 = Memory::new(5, 5);
-        
+
         env1.reset(Some(999));
         env2.reset(Some(999));
-        
+
         assert_eq!(env1.solution, env2.solution);
     }
 }

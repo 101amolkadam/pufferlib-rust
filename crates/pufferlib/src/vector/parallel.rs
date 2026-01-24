@@ -2,12 +2,12 @@
 //!
 //! Runs environments in parallel using rayon for high throughput.
 
+use super::vecenv::{VecEnvBackend, VecEnvResult};
+use crate::env::{EnvInfo, PufferEnv};
+use crate::spaces::DynSpace;
 use ndarray::{Array2, ArrayD, IxDyn};
 use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
-use crate::env::{PufferEnv, EnvInfo};
-use crate::spaces::DynSpace;
-use super::vecenv::{VecEnvBackend, VecEnvResult};
 
 /// Parallel vectorization backend using rayon
 pub struct Parallel<E: PufferEnv> {
@@ -35,7 +35,7 @@ impl<E: PufferEnv> Parallel<E> {
         let obs_space = first_env.observation_space();
         let action_space = first_env.action_space();
         let obs_shape = obs_space.shape().to_vec();
-        
+
         // Create all envs in parallel
         // We use Arc<Mutex> because we need to share ownership with the threads (rayon)
         // and allow mutable access via the mutex.
@@ -43,7 +43,7 @@ impl<E: PufferEnv> Parallel<E> {
             .into_par_iter()
             .map(|_| Arc::new(Mutex::new(env_creator())))
             .collect();
-        
+
         // Replace first env to ensure we reuse the one created for space detection
         // Note: In efficient implementation we might want to just creating it inside the map
         // but we need spaces before creating the collection to potentially validation.
@@ -51,7 +51,7 @@ impl<E: PufferEnv> Parallel<E> {
         if let Ok(mut env) = envs[0].lock() {
             *env = first_env;
         }
-        
+
         Self {
             envs,
             num_envs,
@@ -66,17 +66,18 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
     fn observation_space(&self) -> DynSpace {
         self.obs_space.clone()
     }
-    
+
     fn action_space(&self) -> DynSpace {
         self.action_space.clone()
     }
-    
+
     fn num_envs(&self) -> usize {
         self.num_envs
     }
-    
+
     fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
-        let results: Vec<_> = self.envs
+        let results: Vec<_> = self
+            .envs
             .par_iter()
             .enumerate()
             .map(|(i, env)| {
@@ -85,64 +86,69 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                 env.reset(env_seed)
             })
             .collect();
-        
+
         let observations: Vec<_> = results.iter().map(|(o, _)| o.clone()).collect();
         let infos: Vec<_> = results.into_iter().map(|(_, i)| i).collect();
-        
+
         // Stack observations
-        let flat_obs: Vec<f32> = observations.iter()
+        let flat_obs: Vec<f32> = observations
+            .iter()
             .flat_map(|o| o.iter().copied())
             .collect();
-        let obs_array = Array2::from_shape_vec(
-            (self.num_envs, self.obs_shape.iter().product()),
-            flat_obs
-        ).expect("Failed to create observation array");
-        
+        let obs_array =
+            Array2::from_shape_vec((self.num_envs, self.obs_shape.iter().product()), flat_obs)
+                .expect("Failed to create observation array");
+
         (obs_array, infos)
     }
-    
+
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult {
         // Convert actions to owned vec for parallel iteration
         let action_vecs: Vec<Vec<f32>> = (0..self.num_envs)
             .map(|i| actions.row(i).to_vec())
             .collect();
-        
-        let results: Vec<_> = self.envs
+
+        let results: Vec<_> = self
+            .envs
             .par_iter()
             .zip(action_vecs.par_iter())
             .map(|(env, action_vec)| {
-                let action = ArrayD::from_shape_vec(
-                    IxDyn(&[action_vec.len()]),
-                    action_vec.clone()
-                ).expect("Failed to create action array");
-                
+                let action = ArrayD::from_shape_vec(IxDyn(&[action_vec.len()]), action_vec.clone())
+                    .expect("Failed to create action array");
+
                 let mut env = env.lock().unwrap();
-                
+
                 if env.is_done() {
                     let (obs, info) = env.reset(None);
                     (obs, 0.0, false, false, info)
                 } else {
                     let result = env.step(&action);
-                    (result.observation, result.reward, result.terminated, result.truncated, result.info)
+                    (
+                        result.observation,
+                        result.reward,
+                        result.terminated,
+                        result.truncated,
+                        result.info,
+                    )
                 }
             })
             .collect();
-        
+
         let observations: Vec<_> = results.iter().map(|(o, _, _, _, _)| o.clone()).collect();
         let rewards: Vec<_> = results.iter().map(|(_, r, _, _, _)| *r).collect();
         let terminated: Vec<_> = results.iter().map(|(_, _, t, _, _)| *t).collect();
         let truncated: Vec<_> = results.iter().map(|(_, _, _, t, _)| *t).collect();
         let infos: Vec<_> = results.into_iter().map(|(_, _, _, _, i)| i).collect();
-        
+
         // Stack observations
-        let flat_obs: Vec<f32> = observations.iter()
+        let flat_obs: Vec<f32> = observations
+            .iter()
             .flat_map(|o| o.iter().copied())
             .collect();
-        let obs_array = Array2::from_shape_vec(
-            (self.num_envs, self.obs_shape.iter().product()),
-            flat_obs
-        ).expect("Failed to create observation array");
-        
+        let obs_array =
+            Array2::from_shape_vec((self.num_envs, self.obs_shape.iter().product()), flat_obs)
+                .expect("Failed to create observation array");
+
         VecEnvResult {
             observations: obs_array,
             rewards,
@@ -151,7 +157,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
             infos,
         }
     }
-    
+
     fn close(&mut self) {
         self.envs.par_iter().for_each(|env| {
             env.lock().unwrap().close();

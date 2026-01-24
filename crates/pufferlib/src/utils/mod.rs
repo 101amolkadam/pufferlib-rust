@@ -26,12 +26,12 @@ pub fn format_duration(seconds: f64) -> String {
     if seconds < 0.0 {
         return "0s".to_string();
     }
-    
+
     let secs = seconds as u64;
     let h = secs / 3600;
     let m = (secs % 3600) / 60;
     let s = secs % 60;
-    
+
     if h > 0 {
         format!("{}h {}m {}s", h, m, s)
     } else if m > 0 {
@@ -44,7 +44,7 @@ pub fn format_duration(seconds: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_abbreviate() {
         assert_eq!(abbreviate(500), "500");
@@ -52,7 +52,7 @@ mod tests {
         assert_eq!(abbreviate(1_500_000), "1.5M");
         assert_eq!(abbreviate(1_500_000_000), "1.5B");
     }
-    
+
     #[test]
     fn test_format_duration() {
         assert_eq!(format_duration(30.0), "30s");

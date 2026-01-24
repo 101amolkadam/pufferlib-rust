@@ -4,10 +4,10 @@
 //! - `Serial` - Sequential execution for debugging
 //! - `Parallel` - Parallel execution using rayon
 
-mod serial;
 mod parallel;
+mod serial;
 mod vecenv;
 
-pub use serial::Serial;
 pub use parallel::Parallel;
-pub use vecenv::{VecEnv, VecEnvConfig, VecEnvResult, VecEnvBackend};
+pub use serial::Serial;
+pub use vecenv::{VecEnv, VecEnvBackend, VecEnvConfig, VecEnvResult};

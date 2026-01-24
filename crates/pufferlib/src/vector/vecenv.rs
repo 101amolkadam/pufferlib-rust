@@ -1,8 +1,8 @@
 //! Vectorized environment abstraction.
 
-use ndarray::Array2;
 use crate::env::EnvInfo;
 use crate::spaces::DynSpace;
+use ndarray::Array2;
 
 /// Configuration for vectorized environments
 #[derive(Clone, Debug)]
@@ -25,9 +25,12 @@ impl Default for VecEnvConfig {
 impl VecEnvConfig {
     /// Create a new config with specified number of environments
     pub fn new(num_envs: usize) -> Self {
-        Self { num_envs, ..Default::default() }
+        Self {
+            num_envs,
+            ..Default::default()
+        }
     }
-    
+
     /// Set the random seed
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
@@ -53,7 +56,8 @@ pub struct VecEnvResult {
 impl VecEnvResult {
     /// Check which environments are done
     pub fn dones(&self) -> Vec<bool> {
-        self.terminated.iter()
+        self.terminated
+            .iter()
             .zip(self.truncated.iter())
             .map(|(&t, &tr)| t || tr)
             .collect()
@@ -64,19 +68,19 @@ impl VecEnvResult {
 pub trait VecEnvBackend: Send {
     /// Get the observation space (single env)
     fn observation_space(&self) -> DynSpace;
-    
+
     /// Get the action space (single env)
     fn action_space(&self) -> DynSpace;
-    
+
     /// Get the number of environments
     fn num_envs(&self) -> usize;
-    
+
     /// Reset all environments
     fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>);
-    
+
     /// Step all environments with given actions
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult;
-    
+
     /// Close all environments
     fn close(&mut self);
 }
@@ -93,32 +97,32 @@ impl VecEnv {
             backend: Box::new(backend),
         }
     }
-    
+
     /// Get observation space
     pub fn observation_space(&self) -> DynSpace {
         self.backend.observation_space()
     }
-    
+
     /// Get action space
     pub fn action_space(&self) -> DynSpace {
         self.backend.action_space()
     }
-    
+
     /// Get number of environments
     pub fn num_envs(&self) -> usize {
         self.backend.num_envs()
     }
-    
+
     /// Reset all environments
     pub fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
         self.backend.reset(seed)
     }
-    
+
     /// Step all environments
     pub fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult {
         self.backend.step(actions)
     }
-    
+
     /// Close all environments
     pub fn close(&mut self) {
         self.backend.close()
@@ -129,23 +133,23 @@ impl VecEnvBackend for VecEnv {
     fn observation_space(&self) -> DynSpace {
         self.backend.observation_space()
     }
-    
+
     fn action_space(&self) -> DynSpace {
         self.backend.action_space()
     }
-    
+
     fn num_envs(&self) -> usize {
         self.backend.num_envs()
     }
-    
+
     fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
         self.backend.reset(seed)
     }
-    
+
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult {
         self.backend.step(actions)
     }
-    
+
     fn close(&mut self) {
         self.backend.close()
     }

@@ -1,8 +1,7 @@
 //! Core environment trait definitions.
 
-use ndarray::ArrayD;
 use crate::spaces::DynSpace;
-
+use ndarray::ArrayD;
 
 /// Information returned from environment steps
 #[derive(Clone, Debug, Default)]
@@ -20,28 +19,26 @@ impl EnvInfo {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Add episode stats
     pub fn with_episode_stats(mut self, ret: f32, len: u32) -> Self {
         self.episode_return = Some(ret);
         self.episode_length = Some(len as f32);
         self
     }
-    
+
     /// Add a custom metric (use rarely)
     pub fn with_extra(mut self, key: &'static str, value: f32) -> Self {
         self.extra.push((key, value));
         self
     }
-    
+
     /// Get a value by key (including defaults)
     pub fn get(&self, key: &str) -> Option<f32> {
         match key {
             "episode_return" => self.episode_return,
             "episode_length" => self.episode_length,
-            _ => self.extra.iter()
-                .find(|(k, _)| k == &key)
-                .map(|(_, v)| *v),
+            _ => self.extra.iter().find(|(k, _)| k == &key).map(|(_, v)| *v),
         }
     }
 }
@@ -104,10 +101,10 @@ impl StepResult {
 pub trait PufferEnv: Send {
     /// Get the observation space
     fn observation_space(&self) -> DynSpace;
-    
+
     /// Get the action space
     fn action_space(&self) -> DynSpace;
-    
+
     /// Reset the environment to initial state
     ///
     /// # Arguments
@@ -116,7 +113,7 @@ pub trait PufferEnv: Send {
     /// # Returns
     /// Tuple of (initial observation, info dict)
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo);
-    
+
     /// Take a single step in the environment
     ///
     /// # Arguments
@@ -125,24 +122,22 @@ pub trait PufferEnv: Send {
     /// # Returns
     /// StepResult containing observation, reward, done flags, and info
     fn step(&mut self, action: &ArrayD<f32>) -> StepResult;
-    
+
     /// Optional: Render the environment
     fn render(&self) -> Option<String> {
         None
     }
-    
+
     /// Optional: Close the environment and free resources
     fn close(&mut self) {}
-    
+
     /// Get the number of agents (default 1 for single-agent)
     fn num_agents(&self) -> usize {
         1
     }
-    
+
     /// Check if environment is done and needs reset
     fn is_done(&self) -> bool {
         false
     }
 }
-
-

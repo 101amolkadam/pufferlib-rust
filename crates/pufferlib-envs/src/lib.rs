@@ -8,10 +8,10 @@
 
 mod bandit;
 mod cartpole;
-mod squared;
 mod memory;
+mod squared;
 
 pub use bandit::Bandit;
 pub use cartpole::CartPole;
-pub use squared::Squared;
 pub use memory::Memory;
+pub use squared::Squared;

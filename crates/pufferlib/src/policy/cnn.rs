@@ -1,5 +1,5 @@
-use tch::{nn, nn::Module, Device, Tensor};
 use super::Policy;
+use tch::{nn, nn::Module, Device, Tensor};
 
 /// Convolutional Neural Network Policy
 ///
@@ -32,14 +32,40 @@ impl CnnPolicy {
         input_width: i64,
         num_actions: i64,
         _config: super::mlp::MlpConfig, // Accept generic config for consistency
-        var_store: &nn::Path, // Use Path instead of VarStore ref specifically
+        var_store: &nn::Path,           // Use Path instead of VarStore ref specifically
     ) -> Self {
-        
         // Nature-CNN architecture
-        let conv1 = nn::conv2d(var_store / "c1", input_channels, 32, 8, nn::ConvConfig { stride: 4, ..Default::default() });
-        let conv2 = nn::conv2d(var_store / "c2", 32, 64, 4, nn::ConvConfig { stride: 2, ..Default::default() });
-        let conv3 = nn::conv2d(var_store / "c3", 64, 64, 3, nn::ConvConfig { stride: 1, ..Default::default() });
-        
+        let conv1 = nn::conv2d(
+            var_store / "c1",
+            input_channels,
+            32,
+            8,
+            nn::ConvConfig {
+                stride: 4,
+                ..Default::default()
+            },
+        );
+        let conv2 = nn::conv2d(
+            var_store / "c2",
+            32,
+            64,
+            4,
+            nn::ConvConfig {
+                stride: 2,
+                ..Default::default()
+            },
+        );
+        let conv3 = nn::conv2d(
+            var_store / "c3",
+            64,
+            64,
+            3,
+            nn::ConvConfig {
+                stride: 1,
+                ..Default::default()
+            },
+        );
+
         // Calculate output size dynamically
         let calc_conv = |size, kernel, stride| (size - kernel) / stride + 1;
         let h1 = calc_conv(input_height, 8, 4);
@@ -48,14 +74,24 @@ impl CnnPolicy {
         let w2 = calc_conv(w1, 4, 2);
         let h3 = calc_conv(h2, 3, 1);
         let w3 = calc_conv(w2, 3, 1);
-        
+
         let features_dim = 64 * h3 * w3;
         let hidden_size = 512;
-        
-        let linear = nn::linear(var_store / "fc1", features_dim, hidden_size, Default::default());
-        let actor = nn::linear(var_store / "actor", hidden_size, num_actions, Default::default());
+
+        let linear = nn::linear(
+            var_store / "fc1",
+            features_dim,
+            hidden_size,
+            Default::default(),
+        );
+        let actor = nn::linear(
+            var_store / "actor",
+            hidden_size,
+            num_actions,
+            Default::default(),
+        );
         let critic = nn::linear(var_store / "critic", hidden_size, 1, Default::default());
-        
+
         let features = nn::seq()
             .add(conv1)
             .add_fn(|x| x.relu())
@@ -66,7 +102,7 @@ impl CnnPolicy {
             .add_fn(|x| x.flatten(1, -1))
             .add(linear)
             .add_fn(|x| x.relu());
-            
+
         Self {
             features,
             actor,
@@ -75,7 +111,7 @@ impl CnnPolicy {
             _feature_size: hidden_size,
         }
     }
-    
+
     pub fn num_parameters(&self) -> usize {
         // Approximate or implement properly using var_store scan
         0 // Placeholder
@@ -84,21 +120,21 @@ impl CnnPolicy {
 
 impl Policy for CnnPolicy {
     fn forward(
-        &self, 
+        &self,
         observations: &Tensor,
-        _state: &Option<Vec<Tensor>>
+        _state: &Option<Vec<Tensor>>,
     ) -> (Tensor, Tensor, Option<Vec<Tensor>>) {
         // Preprocess: assume NCHW or NHWC? PufferLib usually standardizes.
         // Assume obs are [Batch, Channels, Height, Width] normalized float
         let x = observations.to_device(self.device);
         let feats = self.features.forward(&x);
-        
+
         let logits = self.actor.forward(&feats);
         let value = self.critic.forward(&feats);
-        
+
         (logits, value, None)
     }
-    
+
     fn initial_state(&self, _batch_size: i64) -> Option<Vec<Tensor>> {
         None
     }

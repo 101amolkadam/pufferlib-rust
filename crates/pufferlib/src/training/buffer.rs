@@ -23,7 +23,7 @@ pub struct ExperienceBuffer {
     pub returns: Tensor,
     /// Importance sampling weights (for V-trace)
     pub importance: Tensor,
-    
+
     /// Current position in buffer
     pos: usize,
     /// Buffer capacity
@@ -44,7 +44,7 @@ impl ExperienceBuffer {
         device: Device,
     ) -> Self {
         let total = (capacity * num_envs) as i64;
-        
+
         Self {
             observations: Tensor::zeros([total, obs_size], (Kind::Float, device)),
             actions: Tensor::zeros([total, action_size], (Kind::Float, device)),
@@ -61,7 +61,7 @@ impl ExperienceBuffer {
             device,
         }
     }
-    
+
     /// Add a batch of experience
     pub fn add(
         &mut self,
@@ -74,38 +74,44 @@ impl ExperienceBuffer {
     ) {
         let start = (self.pos * self.num_envs) as i64;
         let end = start + self.num_envs as i64;
-        
-        let _ = self.observations.narrow(0, start, end - start).copy_(observations);
+
+        let _ = self
+            .observations
+            .narrow(0, start, end - start)
+            .copy_(observations);
         let _ = self.actions.narrow(0, start, end - start).copy_(actions);
-        let _ = self.log_probs.narrow(0, start, end - start).copy_(log_probs);
+        let _ = self
+            .log_probs
+            .narrow(0, start, end - start)
+            .copy_(log_probs);
         let _ = self.rewards.narrow(0, start, end - start).copy_(rewards);
         let _ = self.dones.narrow(0, start, end - start).copy_(dones);
         let _ = self.values.narrow(0, start, end - start).copy_(values);
         let _ = self.importance.narrow(0, start, end - start).fill_(1.0);
-        
+
         self.pos += 1;
     }
-    
+
     /// Reset buffer position
     pub fn reset(&mut self) {
         self.pos = 0;
     }
-    
+
     /// Check if buffer is full
     pub fn is_full(&self) -> bool {
         self.pos >= self.capacity
     }
-    
+
     /// Get total number of samples
     pub fn len(&self) -> usize {
         self.pos * self.num_envs
     }
-    
+
     /// Check if empty
     pub fn is_empty(&self) -> bool {
         self.pos == 0
     }
-    
+
     /// Compute returns and advantages using GAE
     pub fn compute_returns_and_advantages(
         &mut self,
@@ -116,30 +122,38 @@ impl ExperienceBuffer {
         let steps = self.pos;
         let mut last_gae = Tensor::zeros([self.num_envs as i64], (Kind::Float, self.device));
         let last_val = last_value.shallow_clone();
-        
+
         for t in (0..steps).rev() {
             let start = (t * self.num_envs) as i64;
             let end = start + self.num_envs as i64;
-            
+
             let next_values = if t == steps - 1 {
                 last_val.shallow_clone()
             } else {
                 let next_start = ((t + 1) * self.num_envs) as i64;
-                self.values.narrow(0, next_start, self.num_envs as i64).shallow_clone()
+                self.values
+                    .narrow(0, next_start, self.num_envs as i64)
+                    .shallow_clone()
             };
-            
+
             let rewards = self.rewards.narrow(0, start, end - start);
             let dones = self.dones.narrow(0, start, end - start);
             let values = self.values.narrow(0, start, end - start);
-            
+
             let delta = &rewards + gamma * &next_values * (1.0 - &dones) - &values;
             last_gae = &delta + gamma * gae_lambda * (1.0 - &dones) * &last_gae;
-            
-            let _ = self.advantages.narrow(0, start, end - start).copy_(&last_gae);
-            let _ = self.returns.narrow(0, start, end - start).copy_(&(&last_gae + &values));
+
+            let _ = self
+                .advantages
+                .narrow(0, start, end - start)
+                .copy_(&last_gae);
+            let _ = self
+                .returns
+                .narrow(0, start, end - start)
+                .copy_(&(&last_gae + &values));
         }
     }
-    
+
     /// Compute returns and advantages using V-trace
     pub fn compute_vtrace(
         &mut self,
@@ -150,16 +164,28 @@ impl ExperienceBuffer {
         c_clip: f64,
     ) {
         use super::ppo::compute_vtrace;
-        
+
         let steps = self.pos;
         let num_envs = self.num_envs as i64;
-        
+
         // Reshape flat tensors to [T, N]
-        let rewards = self.rewards.narrow(0, 0, steps as i64 * num_envs).reshape([steps as i64, num_envs]);
-        let values = self.values.narrow(0, 0, steps as i64 * num_envs).reshape([steps as i64, num_envs]);
-        let dones = self.dones.narrow(0, 0, steps as i64 * num_envs).reshape([steps as i64, num_envs]);
-        let importance = self.importance.narrow(0, 0, steps as i64 * num_envs).reshape([steps as i64, num_envs]);
-        
+        let rewards = self
+            .rewards
+            .narrow(0, 0, steps as i64 * num_envs)
+            .reshape([steps as i64, num_envs]);
+        let values = self
+            .values
+            .narrow(0, 0, steps as i64 * num_envs)
+            .reshape([steps as i64, num_envs]);
+        let dones = self
+            .dones
+            .narrow(0, 0, steps as i64 * num_envs)
+            .reshape([steps as i64, num_envs]);
+        let importance = self
+            .importance
+            .narrow(0, 0, steps as i64 * num_envs)
+            .reshape([steps as i64, num_envs]);
+
         let advantages = compute_vtrace(
             &rewards,
             &values,
@@ -171,10 +197,16 @@ impl ExperienceBuffer {
             rho_clip,
             c_clip,
         );
-        
+
         // Flatten back
-        let _ = self.advantages.narrow(0, 0, steps as i64 * num_envs).copy_(&advantages.flatten(0, -1));
-        let _ = self.returns.narrow(0, 0, steps as i64 * num_envs).copy_(&(&self.advantages.narrow(0, 0, steps as i64 * num_envs) + &self.values.narrow(0, 0, steps as i64 * num_envs)));
+        let _ = self
+            .advantages
+            .narrow(0, 0, steps as i64 * num_envs)
+            .copy_(&advantages.flatten(0, -1));
+        let _ = self.returns.narrow(0, 0, steps as i64 * num_envs).copy_(
+            &(&self.advantages.narrow(0, 0, steps as i64 * num_envs)
+                + &self.values.narrow(0, 0, steps as i64 * num_envs)),
+        );
     }
 
     /// Get a minibatch of indices
@@ -182,7 +214,7 @@ impl ExperienceBuffer {
         let total = self.len() as i64;
         Tensor::randperm(total, (Kind::Int64, self.device)).narrow(0, 0, batch_size as i64)
     }
-    
+
     /// Get minibatch by indices
     pub fn get_minibatch(&self, indices: &Tensor) -> MiniBatch {
         MiniBatch {
@@ -209,28 +241,28 @@ pub struct MiniBatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_buffer_creation() {
         let buffer = ExperienceBuffer::new(128, 4, 10, 1, Device::Cpu);
         assert_eq!(buffer.len(), 0);
         assert!(!buffer.is_full());
     }
-    
+
     #[test]
     fn test_buffer_add() {
         let mut buffer = ExperienceBuffer::new(4, 2, 4, 1, Device::Cpu);
-        
+
         let obs = Tensor::randn([2, 4], (Kind::Float, Device::Cpu));
         let actions = Tensor::zeros([2, 1], (Kind::Float, Device::Cpu));
         let log_probs = Tensor::zeros([2], (Kind::Float, Device::Cpu));
         let rewards = Tensor::ones([2], (Kind::Float, Device::Cpu));
         let dones = Tensor::zeros([2], (Kind::Float, Device::Cpu));
         let values = Tensor::zeros([2], (Kind::Float, Device::Cpu));
-        
+
         buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
         assert_eq!(buffer.len(), 2);
-        
+
         buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
         buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
         buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);

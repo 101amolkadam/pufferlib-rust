@@ -1,7 +1,7 @@
 //! Discrete action/observation space
 
-use rand::Rng;
 use super::Space;
+use rand::Rng;
 
 /// Discrete space with n possible values: {0, 1, ..., n-1}
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -22,19 +22,19 @@ impl Discrete {
 
 impl Space for Discrete {
     type Sample = usize;
-    
+
     fn sample<R: Rng>(&self, rng: &mut R) -> Self::Sample {
         rng.gen_range(0..self.n)
     }
-    
+
     fn contains(&self, value: &Self::Sample) -> bool {
         *value < self.n
     }
-    
+
     fn shape(&self) -> &[usize] {
         &self.shape
     }
-    
+
     fn num_elements(&self) -> usize {
         1
     }
@@ -44,19 +44,19 @@ impl Space for Discrete {
 mod tests {
     use super::*;
     use rand::SeedableRng;
-    
+
     #[test]
     fn test_discrete_sample() {
         let space = Discrete::new(4);
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-        
+
         for _ in 0..100 {
             let sample = space.sample(&mut rng);
             assert!(space.contains(&sample));
             assert!(sample < 4);
         }
     }
-    
+
     #[test]
     fn test_discrete_contains() {
         let space = Discrete::new(5);

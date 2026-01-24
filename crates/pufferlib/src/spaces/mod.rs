@@ -2,15 +2,15 @@
 //!
 //! Provides Gymnasium-compatible space definitions for reinforcement learning.
 
-mod discrete;
-mod multi_discrete;  
 mod r#box;
 mod dict;
+mod discrete;
+mod multi_discrete;
 
+pub use dict::Dict;
 pub use discrete::Discrete;
 pub use multi_discrete::MultiDiscrete;
 pub use r#box::Box;
-pub use dict::Dict;
 
 use ndarray::ArrayD;
 use rand::Rng;
@@ -19,16 +19,16 @@ use rand::Rng;
 pub trait Space: Clone + Send + Sync {
     /// The type of samples from this space
     type Sample;
-    
+
     /// Sample a random element from this space
     fn sample<R: Rng>(&self, rng: &mut R) -> Self::Sample;
-    
+
     /// Check if a value is contained in this space
     fn contains(&self, value: &Self::Sample) -> bool;
-    
+
     /// Get the shape of samples from this space
     fn shape(&self) -> &[usize];
-    
+
     /// Get the total number of elements in a sample
     fn num_elements(&self) -> usize {
         self.shape().iter().product()
@@ -54,7 +54,7 @@ impl DynSpace {
             DynSpace::Dict(s) => s.shape().to_vec(),
         }
     }
-    
+
     /// Sample from this space
     pub fn sample<R: Rng>(&self, rng: &mut R) -> ArrayD<f32> {
         match self {
@@ -66,8 +66,9 @@ impl DynSpace {
                 let v = s.sample(rng);
                 ArrayD::from_shape_vec(
                     ndarray::IxDyn(&[v.len()]),
-                    v.into_iter().map(|x| x as f32).collect()
-                ).unwrap()
+                    v.into_iter().map(|x| x as f32).collect(),
+                )
+                .unwrap()
             }
             DynSpace::Box(s) => s.sample(rng),
             DynSpace::Dict(_) => unimplemented!("Dict sampling not yet implemented"),
@@ -78,12 +79,16 @@ impl DynSpace {
     pub fn contains(&self, value: &ArrayD<f32>) -> bool {
         match self {
             DynSpace::Discrete(s) => {
-                if value.len() != 1 { return false; }
+                if value.len() != 1 {
+                    return false;
+                }
                 let v = value.iter().next().unwrap().round() as usize;
                 s.contains(&v)
             }
             DynSpace::MultiDiscrete(s) => {
-                if value.len() != s.nvec.len() { return false; }
+                if value.len() != s.nvec.len() {
+                    return false;
+                }
                 let v: Vec<usize> = value.iter().map(|&x| x.round() as usize).collect();
                 s.contains(&v)
             }
