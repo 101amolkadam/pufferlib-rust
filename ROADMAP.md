@@ -40,9 +40,10 @@ This document outlines the strategic direction and planned features for the Puff
 *Goal: Making PufferLib the standard for Rust RL.*
 
 - [ ] **Bevy Integration**: Official plugin for 3D physics-based RL in the Bevy engine.
+- [ ] **Gymnasium-Rust**: Direct bridge to traditional Rust-gym environments.
 - [ ] **PyO3 Bindings**: Expose Rust environments to Python RL frameworks with zero overhead.
-- [ ] **WebAssembly**: Run inference and simple training directly in the browser.
-- [ ] **Distributed Scales**: Multi-node vectorization using high-performance networking crates.
+- [ ] **WebAssembly**: Run inference and simple training directly in the browser (e.g., via `wasm-bindgen`).
+- [ ] **Distributed Scales**: Multi-node vectorization using `tonic` (gRPC) or `quinn` (QUIC).
 
 ---
 

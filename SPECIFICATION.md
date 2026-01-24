@@ -33,11 +33,20 @@ Rust's parallelism model allows for tighter memory integration than Python's mul
 
 ---
 
-## 3. Algorithmic Nuances
-### 3.1 V-trace Implementation
-- Must support off-policy corrections for asynchronous vectorization.
-- Coefficients ($\rho$, $c$) must be clamped and computed in 32-bit floats.
+## 4. "Ocean" Environment Philosophy
+Following PufferLib 3.x, our "Ocean" equivalent (`pufferlib-envs`) must prioritize raw simulation speed.
 
-### 3.2 Priority Replay
-- Transition to a segment-tree based approach for logarithmic sampling performance.
-- Direct integration with the `ExperienceBuffer`.
+### 4.1 Native Rust Speed
+- **Requirement**: No virtual machine or heavy runtime overhead.
+- **FFI**: Support for direct C/C++ environment bindings via `bindgen`, allowing us to pull in existing PufferLib Ocean environments with zero-copy overhead.
+
+### 4.2 Registry-less Design
+- **Decision**: PufferLib Rust will **NOT** implement a central environment registry.
+- **Reasoning**: Registries add maintenance burden and obscure type safety.
+- **Mechanism**: Use simple factory functions or direct instantiation. Compatibility is achieved via the `PufferEnv` trait.
+
+---
+
+## 5. Neural Specification
+### 5.1 Structure Reconstitution
+- The Emulation Layer must provide a `SpaceTree` that the `Policy` can use to "unflatten" the raw input tensor into structured sub-tensors (e.g., separating image data from scalar status).
