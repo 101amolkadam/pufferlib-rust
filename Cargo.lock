@@ -667,6 +667,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
+ "serde",
 ]
 
 [[package]]
@@ -904,6 +905,9 @@ dependencies = [
  "ndarray 0.16.1",
  "pufferlib",
  "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -930,6 +934,7 @@ dependencies = [
  "libc",
  "rand_chacha",
  "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -940,6 +945,7 @@ checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
  "rand_core",
+ "serde",
 ]
 
 [[package]]

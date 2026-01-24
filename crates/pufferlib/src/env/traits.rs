@@ -208,6 +208,16 @@ pub trait PufferEnv: Send {
     fn is_done(&self) -> bool {
         false
     }
+
+    /// Get current environment state (opaque bytes)
+    fn state(&self) -> Vec<u8> {
+        unimplemented!("State serialization not implemented for this environment");
+    }
+
+    /// Restore environment state from bytes
+    fn set_state(&mut self, _state: &[u8]) {
+        unimplemented!("State restoration not implemented for this environment");
+    }
 }
 
 /// Trait for environments that return structured (unflattened) data.
@@ -255,5 +265,15 @@ pub trait RawPufferEnv: Send {
     /// Check if environment is done
     fn is_done(&self) -> bool {
         false
+    }
+
+    /// Get current environment state
+    fn state(&self) -> Vec<u8> {
+        unimplemented!("State serialization not implemented");
+    }
+
+    /// Restore environment from state
+    fn set_state(&mut self, _state: &[u8]) {
+        unimplemented!("State restoration not implemented");
     }
 }

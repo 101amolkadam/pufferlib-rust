@@ -3,9 +3,10 @@
 use ndarray::{Array2, ArrayD, IxDyn};
 use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
 use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
-use rand::rngs::StdRng;
+use rand_chacha::ChaCha8Rng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
+use serde::{Deserialize, Serialize};
 
 /// Squared grid navigation environment
 ///
@@ -29,7 +30,16 @@ pub struct Squared {
     /// Current tick
     tick: u32,
     /// RNG
-    rng: StdRng,
+    rng: ChaCha8Rng,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SquaredState {
+    grid_flat: Vec<f32>,
+    agent_pos: (usize, usize),
+    targets: Vec<(usize, usize)>,
+    tick: u32,
+    rng: ChaCha8Rng,
 }
 
 // 8 movement directions: N, S, W, E, NE, NW, SE, SW
@@ -63,7 +73,7 @@ impl Squared {
             agent_pos: (distance_to_target, distance_to_target),
             targets: Vec::new(),
             tick: 0,
-            rng: StdRng::from_entropy(),
+            rng: ChaCha8Rng::from_entropy(),
         }
     }
 
@@ -92,7 +102,7 @@ impl PufferEnv for Squared {
 
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         if let Some(s) = seed {
-            self.rng = StdRng::seed_from_u64(s);
+            self.rng = ChaCha8Rng::seed_from_u64(s);
         }
 
         // Reset grid and agent
@@ -209,6 +219,26 @@ impl PufferEnv for Squared {
     fn is_done(&self) -> bool {
         self.tick >= self.max_ticks
     }
+
+    fn state(&self) -> Vec<u8> {
+        let state = SquaredState {
+            grid_flat: self.grid.iter().copied().collect(),
+            agent_pos: self.agent_pos,
+            targets: self.targets.clone(),
+            tick: self.tick,
+            rng: self.rng.clone(),
+        };
+        serde_json::to_vec(&state).unwrap()
+    }
+
+    fn set_state(&mut self, state: &[u8]) {
+        let decoded: SquaredState = serde_json::from_slice(state).unwrap();
+        self.grid = Array2::from_shape_vec((self.grid_size, self.grid_size), decoded.grid_flat).unwrap();
+        self.agent_pos = decoded.agent_pos;
+        self.targets = decoded.targets;
+        self.tick = decoded.tick;
+        self.rng = decoded.rng;
+    }
 }
 
 #[cfg(test)]
@@ -239,5 +269,23 @@ mod tests {
 
         assert_eq!(obs1, obs2);
         assert_eq!(env1.targets, env2.targets);
+    }
+
+    #[test]
+    fn test_squared_serialization() {
+        let mut env = Squared::new(3);
+        env.reset(Some(777));
+
+        for _ in 0..5 {
+            env.step(&ArrayD::from_elem(IxDyn(&[1]), 2.0)); // Move West
+        }
+
+        let state = env.state();
+        let res1 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 3.0)); // Move East
+
+        env.set_state(&state);
+        let res2 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 3.0));
+
+        assert_eq!(res1.observation, res2.observation);
     }
 }

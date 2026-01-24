@@ -12,7 +12,7 @@ This document outlines the strategic direction and planned features for the Puff
     - [ ] Variable agent population padding/masking.
     - [ ] Heterogeneous agent handling.
     - [ ] Deep nested observation space flattening (recursive Dict/Tuple).
-- [ ] **State Serialization**: Deterministic environment state save/restore.
+- [x] **State Serialization**: Deterministic environment state save/restore.
 
 ## 🟡 Phase 2: Algorithmic Expansion
 *Goal: Broaden the library's utility beyond standard PPO.*

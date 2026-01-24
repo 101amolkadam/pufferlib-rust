@@ -3,8 +3,9 @@
 use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
 use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
-use rand::rngs::StdRng;
+use rand_chacha::ChaCha8Rng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
 /// CartPole environment
@@ -34,7 +35,15 @@ pub struct CartPole {
     state: [f32; 4], // x, x_dot, theta, theta_dot
     steps: u32,
     done: bool,
-    rng: StdRng,
+    rng: ChaCha8Rng,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CartPoleState {
+    state: [f32; 4],
+    steps: u32,
+    done: bool,
+    rng: ChaCha8Rng,
 }
 
 impl CartPole {
@@ -59,7 +68,7 @@ impl CartPole {
             state: [0.0; 4],
             steps: 0,
             done: false,
-            rng: StdRng::from_entropy(),
+            rng: ChaCha8Rng::from_entropy(),
         }
     }
 
@@ -89,7 +98,7 @@ impl PufferEnv for CartPole {
 
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         if let Some(s) = seed {
-            self.rng = StdRng::seed_from_u64(s);
+            self.rng = ChaCha8Rng::seed_from_u64(s);
         }
 
         // Initialize state randomly in [-0.05, 0.05]
@@ -176,6 +185,24 @@ impl PufferEnv for CartPole {
     fn is_done(&self) -> bool {
         self.done
     }
+
+    fn state(&self) -> Vec<u8> {
+        let state = CartPoleState {
+            state: self.state,
+            steps: self.steps,
+            done: self.done,
+            rng: self.rng.clone(),
+        };
+        serde_json::to_vec(&state).unwrap()
+    }
+
+    fn set_state(&mut self, state: &[u8]) {
+        let decoded: CartPoleState = serde_json::from_slice(state).unwrap();
+        self.state = decoded.state;
+        self.steps = decoded.steps;
+        self.done = decoded.done;
+        self.rng = decoded.rng;
+    }
 }
 
 #[cfg(test)]
@@ -223,5 +250,24 @@ mod tests {
             let res2 = env2.step(&action);
             assert_eq!(res1.observation, res2.observation);
         }
+    }
+
+    #[test]
+    fn test_cartpole_serialization() {
+        let mut env = CartPole::new();
+        env.reset(Some(42));
+        
+        for _ in 0..10 {
+            env.step(&ArrayD::from_elem(IxDyn(&[1]), 1.0));
+        }
+        
+        let state = env.state();
+        let res1 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 0.0));
+        
+        env.set_state(&state);
+        let res2 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 0.0));
+        
+        assert_eq!(res1.observation, res2.observation);
+        assert_eq!(res1.reward, res2.reward);
     }
 }

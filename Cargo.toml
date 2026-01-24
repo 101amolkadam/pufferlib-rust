@@ -23,9 +23,10 @@ homepage = "https://github.com/101amolkadam/pufferlib-rust"
 
 [workspace.dependencies]
 # Core dependencies
-ndarray = "0.16"
+ndarray = { version = "0.16", features = ["serde-1"] }
 ndarray-rand = "0.15"
-rand = "0.8"
+rand = { version = "0.8", features = ["serde"] }
+rand_chacha = { version = "0.3", features = ["serde1"] }
 rand_distr = "0.4"
 
 # Parallelism

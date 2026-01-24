@@ -139,6 +139,14 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
     fn is_done(&self) -> bool {
         self.env.is_done()
     }
+
+    fn state(&self) -> Vec<u8> {
+        self.env.state()
+    }
+
+    fn set_state(&mut self, state: &[u8]) {
+        self.env.set_state(state);
+    }
 }
 
 #[cfg(test)]

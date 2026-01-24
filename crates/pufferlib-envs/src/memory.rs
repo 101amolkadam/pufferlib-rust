@@ -3,8 +3,9 @@
 use ndarray::{ArrayD, IxDyn};
 use pufferlib::env::{EnvInfo, PufferEnv, StepResult};
 use pufferlib::spaces::{Box as BoxSpace, Discrete, DynSpace};
-use rand::rngs::StdRng;
+use rand_chacha::ChaCha8Rng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 /// Memory environment
 ///
@@ -24,7 +25,15 @@ pub struct Memory {
     /// Current step
     tick: usize,
     /// RNG
-    rng: StdRng,
+    rng: ChaCha8Rng,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MemoryState {
+    solution: Vec<f32>,
+    submission: Vec<f32>,
+    tick: usize,
+    rng: ChaCha8Rng,
 }
 
 impl Memory {
@@ -37,7 +46,7 @@ impl Memory {
             solution: Vec::new(),
             submission: Vec::new(),
             tick: 0,
-            rng: StdRng::from_entropy(),
+            rng: ChaCha8Rng::from_entropy(),
         }
     }
 
@@ -58,7 +67,7 @@ impl PufferEnv for Memory {
 
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, EnvInfo) {
         if let Some(s) = seed {
-            self.rng = StdRng::seed_from_u64(s);
+            self.rng = ChaCha8Rng::seed_from_u64(s);
         }
 
         // Generate random solution sequence
@@ -169,6 +178,24 @@ impl PufferEnv for Memory {
     fn is_done(&self) -> bool {
         self.tick >= self.horizon
     }
+
+    fn state(&self) -> Vec<u8> {
+        let state = MemoryState {
+            solution: self.solution.clone(),
+            submission: self.submission.clone(),
+            tick: self.tick,
+            rng: self.rng.clone(),
+        };
+        serde_json::to_vec(&state).unwrap()
+    }
+
+    fn set_state(&mut self, state: &[u8]) {
+        let decoded: MemoryState = serde_json::from_slice(state).unwrap();
+        self.solution = decoded.solution;
+        self.submission = decoded.submission;
+        self.tick = decoded.tick;
+        self.rng = decoded.rng;
+    }
 }
 
 #[cfg(test)]
@@ -198,5 +225,24 @@ mod tests {
         env2.reset(Some(999));
 
         assert_eq!(env1.solution, env2.solution);
+    }
+
+    #[test]
+    fn test_memory_serialization() {
+        let mut env = Memory::new(5, 2);
+        env.reset(Some(123));
+
+        for _ in 0..3 {
+            env.step(&ArrayD::from_elem(IxDyn(&[1]), 0.0));
+        }
+
+        let state = env.state();
+        let res1 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 1.0));
+
+        env.set_state(&state);
+        let res2 = env.step(&ArrayD::from_elem(IxDyn(&[1]), 1.0));
+
+        assert_eq!(res1.observation, res2.observation);
+        assert_eq!(res1.reward, res2.reward);
     }
 }
