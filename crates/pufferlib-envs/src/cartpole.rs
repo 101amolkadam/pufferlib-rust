@@ -167,7 +167,7 @@ impl PufferEnv for CartPole {
         let cart_pos = ((x + 2.4) / 4.8 * 20.0) as i32;
         let cart_pos = cart_pos.clamp(0, 20);
 
-        let mut line = vec![' '; 21];
+        let mut line = [' '; 21];
         line[cart_pos as usize] = if theta.abs() < 0.1 { '|' } else { '/' };
 
         Some(format!("[{}]", line.iter().collect::<String>()))

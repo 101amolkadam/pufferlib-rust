@@ -194,11 +194,11 @@ impl PufferEnv for Squared {
             for x in 0..self.grid_size {
                 let val = self.grid[(x, y)];
                 if val < 0.0 {
-                    line.push_str("🟢"); // Agent
+                    line.push('🟢'); // Agent
                 } else if val > 0.0 {
-                    line.push_str("🎯"); // Target
+                    line.push('🎯'); // Target
                 } else {
-                    line.push_str("⬛"); // Empty
+                    line.push('⬛'); // Empty
                 }
             }
             lines.push(line);
