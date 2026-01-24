@@ -28,8 +28,10 @@ Located in `benches/`. Run via:
 cargo bench
 ```
 
-## 3. High-Fidelity Comparison
-We maintain a suite of "Parity Environments" (CartPole, Bandit) that exist in both Python and Rust. Monthly audits will compare:
-- **SPS (Steps Per Second)**: Raw simulation speed.
-- **Latency (ms)**: Time from observation to action.
-- **CPU/VRAM usage**: Memory efficiency during large-scale vectorization.
+## 4. Established Baselines (Milestone 1)
+- **Status**: Monomorphized backends deployed.
+- **Optimization**: Zero-dispatch vtable overhead established for `VecEnv` and `PufferEnv`.
+- **Memory**: `SmallVec` integration for zero-allocation metrics path.
+- **Monitoring**: TUI Dashboard with real-time SPS tracking functional.
+
+Current macro-benchmarks indicate stable performance on standard benchmarks (CartPole, Bandit).
