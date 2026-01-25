@@ -37,6 +37,9 @@ pub trait Space: Clone + Send + Sync {
     fn num_elements(&self) -> usize {
         self.shape().iter().product()
     }
+
+    /// Flatten a sample into a provided buffer
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]);
 }
 
 /// Enum for dynamic space types
@@ -58,6 +61,22 @@ impl DynSpace {
             DynSpace::Box(s) => s.shape().to_vec(),
             DynSpace::Dict(s) => s.shape().to_vec(),
             DynSpace::Tuple(s) => s.shape().to_vec(),
+        }
+    }
+
+    pub fn flatten_to(&self, value: &ndarray::ArrayD<f32>, out: &mut [f32]) {
+        match self {
+            DynSpace::Discrete(s) => {
+                let v = value.iter().next().unwrap().round() as usize;
+                s.flatten_to(&v, out);
+            }
+            DynSpace::MultiDiscrete(s) => {
+                let v: Vec<usize> = value.iter().map(|&x| x.round() as usize).collect();
+                s.flatten_to(&v, out);
+            }
+            DynSpace::Box(s) => s.flatten_to(value, out),
+            DynSpace::Dict(_) => panic!("Dict space should be flattened recursively via nested samples"),
+            DynSpace::Tuple(_) => panic!("Tuple space should be flattened recursively via nested samples"),
         }
     }
 

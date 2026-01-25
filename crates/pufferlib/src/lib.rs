@@ -35,10 +35,10 @@ pub mod spaces;
 pub mod utils;
 pub mod vector;
 
-// Optional modules that require tch (libtorch)
-#[cfg(feature = "torch")]
+// Optional modules that require tensor backends
+#[cfg(any(feature = "torch", feature = "candle"))]
 pub mod policy;
-#[cfg(feature = "torch")]
+#[cfg(any(feature = "torch", feature = "candle"))]
 pub mod training;
 
 /// Prelude module for convenient imports
@@ -49,6 +49,9 @@ pub mod prelude {
 
     #[cfg(feature = "torch")]
     pub use crate::policy::{CnnPolicy, HasVarStore, LstmPolicy, MlpPolicy, Policy};
+    #[cfg(feature = "candle")]
+    pub use crate::policy::CandleMlp;
+
     #[cfg(feature = "torch")]
     pub use crate::training::{ExperienceBuffer, Trainer, TrainerConfig};
 }

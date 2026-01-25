@@ -34,8 +34,6 @@ While Python is the standard for RL research, it suffers from several bottleneck
 - **Memory Safety**: Our Emulation Layer uses Rust's ownership system to ensure zero-copy data flow from simulation to neural network, eliminating the large-scale "pickling" overhead common in process-based vectorization.
 
 ---
- Linda
-
 ## 🔥 Features
 
 | Feature | Description | Status |

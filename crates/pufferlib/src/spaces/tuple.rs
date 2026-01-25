@@ -48,6 +48,15 @@ impl Space for Tuple {
     fn shape(&self) -> &[usize] {
         &self.shape
     }
+
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]) {
+        let mut offset = 0;
+        for (space, sample) in self.spaces.iter().zip(value.iter()) {
+            let size = space.shape().iter().product::<usize>();
+            space.flatten_to(sample, &mut out[offset..offset + size]);
+            offset += size;
+        }
+    }
 }
 
 #[cfg(test)]

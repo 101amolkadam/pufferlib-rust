@@ -35,6 +35,10 @@ impl Space for Discrete {
         &self.shape
     }
 
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]) {
+        out[0] = *value as f32;
+    }
+
     fn num_elements(&self) -> usize {
         1
     }

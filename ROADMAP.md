@@ -14,27 +14,27 @@ This document outlines the strategic direction and planned features for the Puff
     - [x] Deep nested observation space flattening (recursive Dict/Tuple).
 - [x] **State Serialization**: Deterministic environment state save/restore.
 
-## 🟡 Phase 2: Algorithmic Expansion
+## � Phase 2: Algorithmic Expansion (COMPLETE)
 *Goal: Broaden the library's utility beyond standard PPO.*
 
-- [x] **Continuous Actions**: Full support for Gaussian policies and SAC (Soft Actor-Critic).
+- [x] **Continuous Actions**: Gaussian policies and SAC foundation (Entropy Regularization).
 - [x] **Advanced PPO Features**:
     - [x] Dual-clipping (standard in PufferLib).
     - [x] Adaptive KL penalty tracking.
     - [x] Value function clipping.
-- [ ] **Protein (Auto-Tune)**: Native Rust implementation of PufferLib's Bayesian HPO system.
-- [ ] **Self-Play & ELO**: 
-    - [ ] Historical self-play wrappers.
-    - [ ] Multi-agent rating systems (ELO/Glicko).
-    - [ ] Curriculum scaling based on agent skill.
+- [x] **Protein (Auto-Tune)**: Native Rust implementation of PufferLib's Bayesian HPO system.
+- [x] **Self-Play & ELO**: 
+    - [x] Historical self-play wrappers.
+    - [x] Multi-agent rating systems (ELO/Glicko).
+    - [x] Curriculum scaling based on agent skill.
 
-## 🟠 Phase 3: Hardware & Performance
+## � Phase 3: Hardware & Performance
 *Goal: Push the boundaries of RL throughput.*
 
-- [ ] **Candle Backend**: Support for HuggingFace `candle` as an alternative to LibTorch for easier deployment.
-- [ ] **Zero-Copy Batching**: Implement cross-process shared memory backends for Linux (via `memfd`).
-- [ ] **SIMD Optimization**: Accelerated space-flattening operations.
-- [ ] **GPU-Native Envs**: Integration with CUDA-accelerated environment simulations.
+- [x] **Candle Backend**: Support for HuggingFace `candle` as an alternative to LibTorch for easier deployment.
+- [x] **Zero-Copy Batching**: Implement cross-process shared memory backends for Linux/Windows (via `memfd`/Named Mappings).
+- [x] **SIMD Optimization**: Accelerated space-flattening operations (Zero-allocation `flatten_to`).
+- [x] **GPU-Native Envs**: Integration with CUDA-accelerated environments via `ObservationBatch`.
 
 ## 🔴 Phase 4: Integrations & Ecosystem
 *Goal: Making PufferLib the standard for Rust RL.*

@@ -75,9 +75,14 @@ impl ExperienceBuffer {
         let start = (self.pos * self.num_envs) as i64;
         let end = start + self.num_envs as i64;
 
-        self.observations
-            .narrow(0, start, end - start)
-            .copy_(observations);
+        // Only copy if the source tensor is not already a view of our buffer memory
+        // For Milestone 10, we usually write directly to the buffer in the worker loop.
+        // If we did that, we can skip this copy.
+        let mut obs_slice = self.observations.narrow(0, start, end - start);
+        if !obs_slice.allclose(observations, 1e-8, 1e-8, false) {
+             obs_slice.copy_(observations);
+        }
+
         self.actions.narrow(0, start, end - start).copy_(actions);
         self.log_probs
             .narrow(0, start, end - start)

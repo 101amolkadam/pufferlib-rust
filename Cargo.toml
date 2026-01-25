@@ -50,8 +50,20 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2.0"
 anyhow = "1.0"
 
+# Pure Rust neural networks
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+
 # Utilities
 num-traits = "0.2"
 ordered-float = "4.5"
 smallvec = { version = "1.13", features = ["serde"] }
 indicatif = "0.17"
+
+# Windows-specific system calls
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Memory",
+    "Win32_Security",
+] }

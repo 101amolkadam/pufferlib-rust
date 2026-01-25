@@ -24,14 +24,15 @@ This plan consolidates the strategic vision from `ROADMAP.md`, technical optimiz
 - [x] **State Serialization**: Deterministic environment state save/restore.
 - [x] **Zero-Copy Unflattener**: High-speed structure restoration for policy networks.
 
-## 🛤️ Milestone 3: Algorithmic Expansion (CURRENT)
+## 🛤️ Milestone 3: Algorithmic Expansion (DONE)
 *Objective: Broaden utility beyond standard Discrete PPO.*
 
 - [x] **Continuous Actions**: Full support for Gaussian policies and SAC.
-- [ ] **Advanced PPO Features**: Dual-clipping, adaptive KL, value clipping.
-- [ ] **Self-Play Wrapper**: Native support for ELO-based training.
+- [x] **Advanced PPO Features**: Dual-clipping, adaptive KL, value clipping.
+- [x] **Self-Play Wrapper**: Native support for ELO-based training.
+- [x] **Protein (Auto-Tune)**: Native Bayesian HPO system.
 
-## 🛤️ Milestone 4: Hardware & Ecosystem
+## 🛤️ Milestone 4: Hardware & Ecosystem (CURRENT)
 *Objective: High throughput and industry integrations.*
 
 - [ ] **Candle Backend**: Enable pure-Rust tensor operations.

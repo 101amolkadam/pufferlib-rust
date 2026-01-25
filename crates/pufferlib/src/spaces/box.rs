@@ -77,6 +77,10 @@ impl Space for Box {
     fn shape(&self) -> &[usize] {
         &self.shape
     }
+
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]) {
+        out.copy_from_slice(value.as_slice().unwrap());
+    }
 }
 
 #[cfg(test)]

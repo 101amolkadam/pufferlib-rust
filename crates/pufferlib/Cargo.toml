@@ -9,6 +9,7 @@ description = "High-performance reinforcement learning library"
 [features]
 default = []
 torch = ["tch"]
+candle = ["candle-core", "candle-nn", "candle-transformers"]
 
 [dependencies]
 # Core dependencies
@@ -19,6 +20,11 @@ rand_distr = { workspace = true }
 
 # Neural networks - optional, requires libtorch installed
 tch = { version = "0.17", optional = true }
+
+# Pure Rust neural networks - optional
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
 
 # Parallelism
 rayon = { workspace = true }
@@ -41,6 +47,9 @@ num-traits = { workspace = true }
 ordered-float = { workspace = true }
 smallvec = { workspace = true }
 indicatif = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.5"

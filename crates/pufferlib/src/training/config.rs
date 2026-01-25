@@ -1,6 +1,7 @@
 //! Trainer configuration.
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "torch")]
 use tch::Device;
 
 /// Configuration for the PPO trainer
@@ -37,6 +38,10 @@ pub struct TrainerConfig {
     pub max_grad_norm: f64,
     /// Target KL divergence for early stopping
     pub target_kl: f64,
+    /// KL coefficient for adaptive penalty
+    pub kl_coef: f64,
+    /// Whether to use adaptive KL penalty
+    pub kl_adaptive: bool,
     /// PPO dual-clip coefficient (0.0 to disable)
     pub dual_clip_coef: f64,
 
@@ -63,14 +68,23 @@ pub struct TrainerConfig {
 
     // Device
     /// Device to train on ("cpu" or "cuda")
-    /// Device to train on ("cpu" or "cuda")
+    #[cfg(feature = "torch")]
     #[serde(skip, default = "default_device")]
     pub device: Device,
+
+    // Self-play
+    /// Enable self-play
+    pub self_play_enabled: bool,
+    /// Learner ratio (fraction of envs that run the learner policy)
+    pub self_play_learner_ratio: f64,
+    /// Snapshot interval (epochs)
+    pub self_play_snapshot_interval: usize,
 
     // Random seed
     pub seed: u64,
 }
 
+#[cfg(feature = "torch")]
 fn default_device() -> Device {
     Device::Cpu
 }
@@ -93,6 +107,8 @@ impl Default for TrainerConfig {
             vf_coef: 0.5,
             max_grad_norm: 0.5,
             target_kl: 0.015,
+            kl_coef: 0.2,
+            kl_adaptive: true,
             dual_clip_coef: 0.0,
 
             vtrace_rho_clip: 1.0,
@@ -105,6 +121,11 @@ impl Default for TrainerConfig {
             checkpoint_interval: 100,
             data_dir: "checkpoints".to_string(),
 
+            self_play_enabled: false,
+            self_play_learner_ratio: 1.0,
+            self_play_snapshot_interval: 100,
+
+            #[cfg(feature = "torch")]
             device: Device::Cpu,
             seed: 42,
         }
@@ -113,6 +134,7 @@ impl Default for TrainerConfig {
 
 impl TrainerConfig {
     /// Create config for CUDA device
+    #[cfg(feature = "torch")]
     pub fn cuda(mut self) -> Self {
         self.device = Device::Cuda(0);
         self

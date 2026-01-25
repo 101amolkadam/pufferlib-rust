@@ -1,3 +1,4 @@
+#![cfg(feature = "torch")]
 use super::Policy;
 use tch::{nn, nn::Module, Device, Tensor};
 

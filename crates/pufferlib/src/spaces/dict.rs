@@ -74,6 +74,21 @@ impl Space for Dict {
     fn shape(&self) -> &[usize] {
         &self.shape
     }
+
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]) {
+        let mut offset = 0;
+        // Sort keys to ensure deterministic flattening order (PufferLib standard)
+        let mut keys: Vec<_> = self.spaces.keys().collect();
+        keys.sort();
+
+        for key in keys {
+            let space = &self.spaces[key];
+            let sample = &value[key];
+            let size = space.shape().iter().product::<usize>();
+            space.flatten_to(sample, &mut out[offset..offset + size]);
+            offset += size;
+        }
+    }
 }
 
 #[cfg(test)]

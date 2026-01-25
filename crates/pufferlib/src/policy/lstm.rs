@@ -1,5 +1,6 @@
 //! LSTM policy wrapper.
 
+#![cfg(feature = "torch")]
 use super::Policy;
 use tch::{nn, nn::Module, nn::RNN, Device, Kind, Tensor};
 

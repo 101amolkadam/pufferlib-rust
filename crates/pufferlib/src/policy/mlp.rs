@@ -1,7 +1,9 @@
 //! Multi-layer perceptron policy.
 
+#[cfg(feature = "torch")]
 use super::Policy;
 use crate::spaces::{DynSpace, Space};
+#[cfg(feature = "torch")]
 use tch::{nn, nn::Module, Device, Tensor};
 
 /// Configuration for MLP policy
@@ -33,6 +35,7 @@ impl Default for MlpConfig {
 }
 
 /// Multi-layer perceptron policy
+#[cfg(feature = "torch")]
 pub struct MlpPolicy {
     /// Variable store for parameters
     vs: nn::VarStore,
@@ -50,6 +53,7 @@ pub struct MlpPolicy {
     device: Device,
 }
 
+#[cfg(feature = "torch")]
 impl MlpPolicy {
     /// Create a new MLP policy
     pub fn new(
@@ -171,6 +175,7 @@ impl MlpPolicy {
     }
 }
 
+#[cfg(feature = "torch")]
 impl Policy for MlpPolicy {
     fn forward(
         &self,
@@ -187,6 +192,7 @@ impl Policy for MlpPolicy {
             let mean = mean_logstd[0].shallow_clone();
             // log_std clamped for stability
             let log_std = mean_logstd[1].clamp(-20.0, 2.0);
+            
             super::Distribution::Gaussian {
                 mean,
                 std: log_std.exp(),
@@ -203,17 +209,74 @@ impl Policy for MlpPolicy {
     }
 }
 
-impl super::HasVarStore for MlpPolicy {
-    fn var_store_mut(&mut self) -> &mut nn::VarStore {
-        &mut self.vs
+#[cfg(feature = "candle")]
+pub struct CandleMlp {
+    encoder: candle_nn::Sequential,
+    actor: candle_nn::Linear,
+    critic: candle_nn::Linear,
+    is_continuous: bool,
+}
+
+#[cfg(feature = "candle")]
+impl CandleMlp {
+    pub fn new(
+        obs_size: usize,
+        num_actions: usize,
+        is_continuous: bool,
+        config: MlpConfig,
+        vb: candle_nn::VarBuilder,
+    ) -> candle_core::Result<Self> {
+        let mut encoder = candle_nn::seq();
+        let mut in_size = obs_size;
+
+        for _ in 0..config.num_layers {
+            encoder = encoder.add(candle_nn::linear(in_size, config.hidden_size as usize, vb.clone())?);
+            match config.activation {
+                Activation::ReLU => encoder = encoder.add_fn(|x| x.relu()),
+                Activation::Tanh => encoder = encoder.add_fn(|x| x.tanh()),
+                Activation::Gelu => encoder = encoder.add_fn(|x| x.gelu()),
+            }
+            in_size = config.hidden_size as usize;
+        }
+
+        let actor_out = if is_continuous { num_actions * 2 } else { num_actions };
+        let actor = candle_nn::linear(config.hidden_size as usize, actor_out, vb.clone())?;
+        let critic = candle_nn::linear(config.hidden_size as usize, 1, vb)?;
+
+        Ok(Self {
+            encoder,
+            actor,
+            critic,
+            is_continuous,
+        })
     }
 
-    fn var_store(&self) -> &nn::VarStore {
-        &self.vs
+    pub fn forward(
+        &self,
+        observations: &candle_core::Tensor,
+    ) -> candle_core::Result<(super::Distribution, candle_core::Tensor)> {
+        use candle_nn::Module;
+        let hidden = self.encoder.forward(observations)?;
+        let actor_out = self.actor.forward(&hidden)?;
+        let value = self.critic.forward(&hidden)?.squeeze(candle_core::D::Minus1)?;
+
+        let dist = if self.is_continuous {
+            let chunks = actor_out.chunk(2, candle_core::D::Minus1)?;
+            let mean = chunks[0].clone();
+            let log_std = chunks[1].clamp(-20.0, 2.0)?;
+            super::Distribution::CandleGaussian {
+                mean,
+                std: log_std.exp()?,
+            }
+        } else {
+            super::Distribution::CandleCategorical { logits: actor_out }
+        };
+
+        Ok((dist, value))
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "torch"))]
 mod tests {
     use super::*;
     use crate::spaces::Space;

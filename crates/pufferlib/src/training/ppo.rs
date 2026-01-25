@@ -174,6 +174,19 @@ pub fn ppo_dual_clip_policy_loss(
     -final_loss.mean(Kind::Float)
 }
 
+/// Compute Soft Actor-Critic (SAC) style entropy-regularized loss
+/// Note: Full SAC requires off-policy training, but this provides the focal point
+/// for entropy maximization in on-policy settings.
+pub fn sac_loss(
+    values: &Tensor,
+    log_probs: &Tensor,
+    alpha: f64,
+) -> Tensor {
+    // SAC objective: J = E[Q(s,a) - alpha * log_p(a|s)]
+    // In on-policy contexts, this often manifests as entropy maximization
+    (alpha * log_probs - values).mean(Kind::Float)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,7 +217,7 @@ mod tests {
 
         let advantages = compute_gae(&rewards, &values, &dones, &last_value, 0.9, 0.5);
 
-        let adv_data: Vec<f32> = advantages.flatten(0, -1).into();
+        let adv_data = Vec::<f32>::try_from(advantages.flatten(0, -1)).unwrap();
         assert!(adv_data[1] >= 1.0);
         assert!(adv_data[2] >= 1.0);
     }
@@ -216,5 +229,19 @@ mod tests {
         let kl = kl_divergence(&log_probs, &old_log_probs);
         let val = kl.double_value(&[]);
         assert!((val - 0.1).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_sac_loss() {
+        let values = Tensor::from_slice(&[1.0f32, 2.0]).reshape([2]);
+        let log_probs = Tensor::from_slice(&[-0.5f32, -1.0]).reshape([2]);
+        let alpha = 0.5;
+
+        let loss = sac_loss(&values, &log_probs, alpha);
+        let val = loss.double_value(&[]);
+
+        // loss = ((0.5 * -0.5 - 1.0) + (0.5 * -1.0 - 2.0)) / 2
+        // loss = (-1.25 + -2.5) / 2 = -1.875
+        assert!((val + 1.875).abs() < 1e-6);
     }
 }

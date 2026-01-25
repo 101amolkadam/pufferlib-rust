@@ -58,6 +58,12 @@ impl Space for MultiDiscrete {
         &self.shape
     }
 
+    fn flatten_to(&self, value: &Self::Sample, out: &mut [f32]) {
+        for (i, &v) in value.iter().enumerate() {
+            out[i] = v as f32;
+        }
+    }
+
     fn num_elements(&self) -> usize {
         self.nvec.len()
     }

@@ -38,11 +38,48 @@ impl VecEnvConfig {
     }
 }
 
+/// Observation batch that can reside on CPU or GPU
+#[derive(Debug)]
+pub enum ObservationBatch {
+    /// Standard CPU array
+    Cpu(Array2<f32>),
+    /// LibTorch tensor (possibly on GPU)
+    #[cfg(feature = "torch")]
+    Torch(tch::Tensor),
+    /// Candle tensor (possibly on GPU)
+    #[cfg(feature = "candle")]
+    Candle(candle_core::Tensor),
+}
+
+impl Clone for ObservationBatch {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Cpu(a) => Self::Cpu(a.clone()),
+            #[cfg(feature = "torch")]
+            Self::Torch(t) => Self::Torch(t.shallow_clone()),
+            #[cfg(feature = "candle")]
+            Self::Candle(t) => Self::Candle(t.clone()),
+        }
+    }
+}
+
+impl ObservationBatch {
+    pub fn num_envs(&self) -> usize {
+        match self {
+            Self::Cpu(a) => a.shape()[0],
+            #[cfg(feature = "torch")]
+            Self::Torch(t) => t.size()[0] as usize,
+            #[cfg(feature = "candle")]
+            Self::Candle(t) => t.dims()[0],
+        }
+    }
+}
+
 /// Result from stepping all environments
 #[derive(Clone, Debug)]
 pub struct VecEnvResult {
-    /// Observations for all environments (num_envs, *obs_shape)
-    pub observations: Array2<f32>,
+    /// Observations for all environments
+    pub observations: ObservationBatch,
     /// Rewards for all environments
     pub rewards: Vec<f32>,
     /// Terminated flags
@@ -76,7 +113,7 @@ pub trait VecEnvBackend: Send {
     fn num_envs(&self) -> usize;
 
     /// Reset all environments
-    fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>);
+    fn reset(&mut self, seed: Option<u64>) -> (ObservationBatch, Vec<EnvInfo>);
 
     /// Step all environments with given actions
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult;
@@ -112,7 +149,7 @@ impl<B: VecEnvBackend> VecEnv<B> {
     }
 
     /// Reset all environments
-    pub fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
+    pub fn reset(&mut self, seed: Option<u64>) -> (ObservationBatch, Vec<EnvInfo>) {
         self.backend.reset(seed)
     }
 
@@ -140,7 +177,7 @@ impl<B: VecEnvBackend> VecEnvBackend for VecEnv<B> {
         self.backend.num_envs()
     }
 
-    fn reset(&mut self, seed: Option<u64>) -> (Array2<f32>, Vec<EnvInfo>) {
+    fn reset(&mut self, seed: Option<u64>) -> (ObservationBatch, Vec<EnvInfo>) {
         self.backend.reset(seed)
     }
 
