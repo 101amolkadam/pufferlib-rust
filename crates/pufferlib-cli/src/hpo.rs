@@ -1,4 +1,3 @@
-#![cfg(feature = "torch")]
 //! CLI module for hyperparameter optimization.
 
 pub use pufferlib::training::hpo::{ParameterRange, SearchSpace, Study};
