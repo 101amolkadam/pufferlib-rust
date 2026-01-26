@@ -55,3 +55,7 @@ windows-sys = { workspace = true }
 criterion = "0.5"
 pufferlib-envs = { path = "../pufferlib-envs" }
 ndarray = { workspace = true }
+
+[[example]]
+name = "repro_panic"
+required-features = ["torch"]
