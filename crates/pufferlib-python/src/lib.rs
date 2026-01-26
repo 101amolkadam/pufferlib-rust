@@ -1,4 +1,5 @@
 //! PyO3 bindings for PufferLib.
+#![allow(clippy::useless_conversion)]
 
 use ndarray::ArrayD;
 use numpy::{PyArrayDyn, PyArrayMethods, ToPyArray};
@@ -19,7 +20,6 @@ type StepResultTuple = (Py<PyArrayDyn<f32>>, f32, bool, bool, PyObject);
 impl PufferPythonEnv {
     /// Reset the environment
     #[pyo3(signature = (seed=None))]
-    #[allow(clippy::useless_conversion)]
     fn reset(
         &mut self,
         py: Python,
@@ -33,7 +33,6 @@ impl PufferPythonEnv {
 
     /// Step the environment
     #[allow(clippy::type_complexity)]
-    #[allow(clippy::useless_conversion)]
     fn step(&mut self, py: Python, action: Py<PyArrayDyn<f32>>) -> PyResult<StepResultTuple> {
         // Convert Python array to ndarray
         let action_bound = action.bind(py);
