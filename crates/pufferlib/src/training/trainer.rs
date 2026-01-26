@@ -219,13 +219,18 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Checkpointing
-            if self.epoch.is_multiple_of(self.config.checkpoint_interval as u64) {
+            if self
+                .epoch
+                .is_multiple_of(self.config.checkpoint_interval as u64)
+            {
                 self.save_checkpoint();
             }
 
             // Self-Play Snapshotting
             if self.config.self_play_enabled
-                && self.epoch.is_multiple_of(self.config.self_play_snapshot_interval as u64)
+                && self
+                    .epoch
+                    .is_multiple_of(self.config.self_play_snapshot_interval as u64)
             {
                 self.snapshot_policy();
             }
