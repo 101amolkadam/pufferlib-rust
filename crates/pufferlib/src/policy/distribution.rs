@@ -128,7 +128,8 @@ impl Distribution {
             #[cfg(feature = "torch")]
             Self::Categorical { logits } => {
                 let probs = logits.softmax(-1, Kind::Float);
-                let entropy = -(probs.clone() * probs.log()).sum_dim_intlist(
+                let log_probs = logits.log_softmax(-1, Kind::Float);
+                let entropy = -(probs * log_probs).sum_dim_intlist(
                     Some(&[-1 as i64][..]),
                     false,
                     Kind::Float,
@@ -137,7 +138,7 @@ impl Distribution {
             }
             #[cfg(feature = "torch")]
             Self::Gaussian { mean: _, std } => {
-                let entropy = std.log() + 0.5 + 0.5 * (2.0 * std::f64::consts::PI).log();
+                let entropy = std.log() + 0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln();
                 DistributionSample::Torch(entropy.sum_dim_intlist(
                      Some(&[-1 as i64][..]),
                     false,

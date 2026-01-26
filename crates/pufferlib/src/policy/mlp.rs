@@ -176,6 +176,17 @@ impl MlpPolicy {
 }
 
 #[cfg(feature = "torch")]
+impl super::HasVarStore for MlpPolicy {
+    fn var_store_mut(&mut self) -> &mut nn::VarStore {
+        &mut self.vs
+    }
+
+    fn var_store(&self) -> &nn::VarStore {
+        &self.vs
+    }
+}
+
+#[cfg(feature = "torch")]
 impl Policy for MlpPolicy {
     fn forward(
         &self,

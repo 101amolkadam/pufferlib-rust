@@ -13,6 +13,7 @@ use pufferlib_envs::{Bandit, CartPole, Memory, Squared};
 // #[cfg(feature = "torch")]
 // use pufferlib::vector::VecEnvBackend;
 
+#[cfg(feature = "torch")]
 mod hpo;
 
 #[derive(Parser)]
@@ -124,10 +125,10 @@ fn main() -> Result<()> {
         Commands::Demo { env, steps } => {
             demo(&env, steps)?;
         }
-        Commands::AutoTune { env, trials, steps } => {
+        Commands::AutoTune { env: _env, trials: _trials, steps: _steps } => {
             #[cfg(feature = "torch")]
             {
-                autotune(&env, trials, steps)?;
+                autotune(&_env, _trials, _steps)?;
             }
             #[cfg(not(feature = "torch"))]
             {

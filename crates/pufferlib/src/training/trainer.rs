@@ -379,7 +379,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 #[cfg(not(feature = "torch"))]
                 let action_sample = DistributionSample::Candle(candle_core::Tensor::zeros((1,), candle_core::DType::F32, &candle_core::Device::Cpu).unwrap());
 
-                let mut new_log_probs_sample = dist.log_prob(&action_sample);
+                let new_log_probs_sample = dist.log_prob(&action_sample);
                 let entropy_sample = dist.entropy();
 
                 #[cfg(feature = "torch")]

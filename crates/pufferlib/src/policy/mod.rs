@@ -14,6 +14,7 @@ pub use cnn::CnnPolicy;
 pub use distribution::{Distribution, DistributionSample};
 #[cfg(feature = "torch")]
 pub use lstm::LstmPolicy;
+pub use mlp::MlpConfig;
 #[cfg(feature = "torch")]
 pub use mlp::MlpPolicy;
 #[cfg(feature = "candle")]

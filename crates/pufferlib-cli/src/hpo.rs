@@ -1,6 +1,7 @@
+#![cfg(feature = "torch")]
 //! CLI module for hyperparameter optimization.
 
-use pufferlib::training::{TrainerConfig, hpo::{Study, SearchSpace, ParameterRange}};
+pub use pufferlib::training::hpo::{Study, SearchSpace, ParameterRange};
 use std::collections::HashMap;
 
 /// Result of an HPO run
@@ -21,7 +22,7 @@ where
 {
     let mut study = Study::new(name, space);
 
-    for i in 0..num_trials {
+    for _ in 0..num_trials {
         let params = study.suggest();
         let trial_id = study.create_trial(params.clone());
         
