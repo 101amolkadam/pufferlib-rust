@@ -200,7 +200,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Logging
-            if self.epoch % 10 == 0 {
+            if self.epoch.is_multiple_of(10) {
                 let elapsed = self.start_time.elapsed().as_secs_f64();
                 let sps = self.global_step as f64 / elapsed;
                 if self.progress.is_none() {
@@ -219,13 +219,13 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // Checkpointing
-            if self.epoch % self.config.checkpoint_interval as u64 == 0 {
+            if self.epoch.is_multiple_of(self.config.checkpoint_interval as u64) {
                 self.save_checkpoint();
             }
 
             // Self-Play Snapshotting
             if self.config.self_play_enabled
-                && self.epoch % self.config.self_play_snapshot_interval as u64 == 0
+                && self.epoch.is_multiple_of(self.config.self_play_snapshot_interval as u64)
             {
                 self.snapshot_policy();
             }
@@ -540,22 +540,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         }
     }
 
-    /// Save checkpoint
-    /// Log metrics
-    fn log_metrics(&self) {
-        let elapsed_time = self.start_time.elapsed().as_secs_f64();
-        let sps = self.global_step as f64 / elapsed_time;
-
-        tracing::info!(
-            epoch = self.epoch,
-            global_step = self.global_step,
-            sps = sps,
-            mean_reward = self.mean_reward,
-            loss = self.last_loss,
-            kl_coef = self.current_kl_coef,
-            "Metrics"
-        );
-    }
+    // log_metrics removed - was unused
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
