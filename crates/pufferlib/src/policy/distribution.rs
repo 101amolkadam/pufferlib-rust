@@ -85,9 +85,14 @@ impl Distribution {
             #[cfg(feature = "torch")]
             (Distribution::Categorical { logits }, DistributionSample::Torch(ref actions)) => {
                 let log_probs = logits.log_softmax(-1, Kind::Float);
+                let indices = if actions.dim() == log_probs.dim() {
+                    actions.to_kind(Kind::Int64)
+                } else {
+                    actions.unsqueeze(-1).to_kind(Kind::Int64)
+                };
                 DistributionSample::Torch(
                     log_probs
-                        .gather(-1, &actions.unsqueeze(-1).to_kind(Kind::Int64), false)
+                        .gather(-1, &indices, false)
                         .squeeze_dim(-1),
                 )
             }

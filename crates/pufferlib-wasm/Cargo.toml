@@ -1,0 +1,21 @@
+[package]
+name = "pufferlib-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly bindings for PufferLib"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pufferlib = { path = "../pufferlib", default-features = false }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { workspace = true }
+serde-wasm-bindgen = "0.6"
+getrandom = { version = "0.2", features = ["js"] }
+ndarray = { workspace = true }
+# For WASM, we usually want to use candle or no backend initially

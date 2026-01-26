@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package pufferlib_rpc;
+
+service ObservationService {
+  rpc Reset(ResetRequest) returns (ResetResponse);
+  rpc Step(StepRequest) returns (StepResponse);
+}
+
+message ResetRequest {
+  uint64 seed = 1;
+}
+
+message ResetResponse {
+  repeated float observation = 1;
+}
+
+message StepRequest {
+  repeated float action = 1;
+}
+
+message StepResponse {
+  repeated float observation = 1;
+  float reward = 2;
+  bool terminated = 3;
+  bool truncated = 4;
+}

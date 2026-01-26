@@ -1,0 +1,18 @@
+[package]
+name = "pufferlib-python"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python bindings for PufferLib"
+
+[lib]
+name = "pufferlib_rust"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pufferlib = { path = "../pufferlib" }
+pyo3 = { workspace = true }
+numpy = { workspace = true }
+ndarray = { workspace = true }

@@ -24,3 +24,7 @@ tch = { version = "0.17", optional = true }
 ndarray = { workspace = true }
 anyhow = { workspace = true }
 indicatif = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"

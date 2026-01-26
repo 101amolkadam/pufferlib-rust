@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "crates/pufferlib",
     "crates/pufferlib-envs",
-    "crates/pufferlib-cli",
+    "crates/pufferlib-cli", "crates/pufferlib-bevy", "crates/pufferlib-python", "crates/pufferlib-wasm", "crates/pufferlib-rpc",
 ]
 
 [workspace.package]
@@ -54,6 +54,10 @@ anyhow = "1.0"
 candle-core = "0.8"
 candle-nn = "0.8"
 candle-transformers = "0.8"
+
+# Python bindings
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"] }
+numpy = "0.22"
 
 # Utilities
 num-traits = "0.2"

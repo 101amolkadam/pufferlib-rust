@@ -1,0 +1,19 @@
+[package]
+name = "pufferlib-bevy"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+
+[dependencies]
+pufferlib = { path = "../pufferlib" }
+bevy = { version = "0.15", default-features = false, features = ["bevy_asset", "bevy_render", "multi_threaded"] }
+ndarray = { workspace = true }
+tracing = { workspace = true }

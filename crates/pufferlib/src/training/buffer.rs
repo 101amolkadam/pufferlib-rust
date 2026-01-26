@@ -218,12 +218,12 @@ impl ExperienceBuffer {
     /// Get minibatch by indices
     pub fn get_minibatch(&self, indices: &Tensor) -> MiniBatch {
         MiniBatch {
-            observations: self.observations.index_select(0, indices),
-            actions: self.actions.index_select(0, indices),
-            log_probs: self.log_probs.index_select(0, indices),
-            advantages: self.advantages.index_select(0, indices),
-            returns: self.returns.index_select(0, indices),
-            values: self.values.index_select(0, indices),
+            observations: self.observations.index_select(0, indices).detach(),
+            actions: self.actions.index_select(0, indices).detach(),
+            log_probs: self.log_probs.index_select(0, indices).detach(),
+            advantages: self.advantages.index_select(0, indices).detach(),
+            returns: self.returns.index_select(0, indices).detach(),
+            values: self.values.index_select(0, indices).detach(),
         }
     }
 }

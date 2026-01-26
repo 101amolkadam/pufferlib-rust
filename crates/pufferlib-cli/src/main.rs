@@ -47,6 +47,14 @@ enum Commands {
         /// Policy type (mlp, lstm)
         #[arg(long, default_value = "mlp")]
         policy: String,
+
+        /// Path to checkpoint to resume from
+        #[arg(long)]
+        resume: Option<String>,
+
+        /// Curriculum type (simple)
+        #[arg(long)]
+        curriculum: Option<String>,
     },
 
     /// Evaluate an agent (random policy without --features torch)
@@ -87,6 +95,21 @@ enum Commands {
         #[arg(long, default_value = "50000")]
         steps: u64,
     },
+
+    /// Benchmark: Measure throughput (SPS)
+    Bench {
+        /// Environment name
+        #[arg(default_value = "cartpole")]
+        env: String,
+
+        /// Number of environments
+        #[arg(long, default_value = "128")]
+        num_envs: usize,
+
+        /// Duration in seconds
+        #[arg(long, default_value = "10")]
+        duration: u64,
+    },
 }
 
 fn main() -> Result<()> {
@@ -104,10 +127,12 @@ fn main() -> Result<()> {
             lr: _lr,
             num_envs: _num_envs,
             policy: _policy,
+            resume: _resume,
+            curriculum: _curriculum,
         } => {
             #[cfg(feature = "torch")]
             {
-                train(&_env, _timesteps, _lr, _num_envs, &_policy)?;
+                train(&_env, _timesteps, _lr, _num_envs, &_policy, _resume, _curriculum)?;
             }
             #[cfg(not(feature = "torch"))]
             {
@@ -139,6 +164,20 @@ fn main() -> Result<()> {
                 tracing::error!("Auto-Tune requires the 'torch' feature.");
             }
         }
+        Commands::Bench {
+            env: _env,
+            num_envs: _num_envs,
+            duration: _duration,
+        } => {
+            #[cfg(feature = "torch")]
+            {
+                bench(&_env, _num_envs, _duration)?;
+            }
+            #[cfg(not(feature = "torch"))]
+            {
+                tracing::error!("Benchmarking requires the 'torch' feature.");
+            }
+        }
     }
 
     Ok(())
@@ -152,6 +191,8 @@ fn train(
     lr: f64,
     num_envs: usize,
     policy_type: &str,
+    resume: Option<String>,
+    curriculum: Option<String>,
 ) -> Result<()> {
     use pufferlib::policy::{LstmPolicy, MlpConfig, MlpPolicy};
     use pufferlib::spaces::Space;
@@ -192,13 +233,13 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume, curriculum)?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume, curriculum)?;
                 }
             } else {
                 let envs = VecEnv::from_backend(Serial::new(make_env, num_envs));
@@ -206,13 +247,13 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume, curriculum)?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume, curriculum)?;
                 }
             }
         }
@@ -226,13 +267,13 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
                 }
             } else {
                 let envs = VecEnv::from_backend(Serial::new(make_env, num_envs));
@@ -240,13 +281,13 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device)?;
+                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
                 }
             }
         }
@@ -267,12 +308,41 @@ fn run_training_thread<B, P>(
     policy: P,
     config: pufferlib::training::TrainerConfig,
     device: tch::Device,
+    resume: Option<String>,
+    curriculum: Option<String>,
 ) -> Result<()>
 where
     B: pufferlib::vector::VecEnvBackend + 'static,
     P: pufferlib::policy::Policy + pufferlib::policy::HasVarStore + 'static,
 {
     let mut trainer = pufferlib::training::Trainer::new(envs, policy, config, device);
+
+    // Apply curriculum if requested
+    if let Some(c_type) = curriculum {
+        if c_type == "simple" {
+            // Simple curriculum setup: scale 'entropy_coef' from 0.1 to 0.01 based on ELO 1000-2000
+            let simple_curriculum = pufferlib::training::curriculum::SimpleCurriculum::new(
+                "entropy_coef",
+                0.1,
+                0.01,
+                1000.0,
+                2000.0,
+            );
+            trainer = trainer.with_curriculum(Box::new(simple_curriculum));
+            tracing::info!("Enabled SimpleCurriculum");
+        } else {
+            tracing::warn!("Unknown curriculum type: {}", c_type);
+        }
+    }
+
+    // Load checkpoint if requested
+    if let Some(path) = resume {
+        if let Err(e) = trainer.load_checkpoint(&path) {
+            tracing::error!("Failed to load checkpoint: {}", e);
+            // Decide if we should exit or continue. For now, exit is safer to avoid accidental overwrites or training from scratch unexpectedly.
+            return Err(e);
+        }
+    }
 
     std::thread::Builder::new()
         .stack_size(8 * 1024 * 1024) // 8MB
@@ -521,5 +591,19 @@ fn autotune(_env_name: &str, num_trials: usize, steps_per_trial: u64) -> Result<
         "Protein Auto-Tune Complete"
     );
 
+    Ok(())
+}
+
+#[cfg(feature = "torch")]
+fn bench(env_name: &str, num_envs: usize, duration_secs: u64) -> Result<()> {
+    tracing::info!("Benchmarking {} with {} envs for {}s...", env_name, num_envs, duration_secs);
+    
+    // Estimate steps to run long enough
+    // Assume 100k SPS max -> 100k * duration
+    let timesteps = 100_000 * duration_secs; 
+    
+    // We reuse train pipeline
+    train(env_name, timesteps, 0.0003, num_envs, "mlp", None, None)?;
+    
     Ok(())
 }

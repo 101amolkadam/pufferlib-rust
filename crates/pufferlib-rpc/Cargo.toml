@@ -1,0 +1,20 @@
+[package]
+name = "pufferlib-rpc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "gRPC-based distributed environment scaling for PufferLib"
+
+[dependencies]
+pufferlib = { path = "../pufferlib" }
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1.39", features = ["full"] }
+serde = { workspace = true }
+ndarray = { workspace = true }
+tracing = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.12"

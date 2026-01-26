@@ -6,7 +6,9 @@
 
 #[cfg(feature = "torch")]
 mod buffer;
+#[cfg(feature = "torch")]
 mod config;
+pub mod curriculum;
 pub mod hpo;
 #[cfg(feature = "torch")]
 mod ppo;
@@ -16,7 +18,9 @@ mod trainer;
 
 #[cfg(feature = "torch")]
 pub use buffer::ExperienceBuffer;
+#[cfg(feature = "torch")]
 pub use config::TrainerConfig;
+pub use curriculum::{Curriculum, SimpleCurriculum};
 #[cfg(feature = "torch")]
 pub use ppo::{compute_gae, compute_vtrace};
 #[cfg(feature = "torch")]
