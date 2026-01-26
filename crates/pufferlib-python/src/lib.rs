@@ -1,7 +1,7 @@
 //! PyO3 bindings for PufferLib.
 
 use ndarray::ArrayD;
-use numpy::{PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods, ToPyArray};
+use numpy::{PyArrayDyn, PyArrayMethods, ToPyArray};
 use pufferlib::env::{PufferEnv, StepResult};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -12,9 +12,13 @@ pub struct PufferPythonEnv {
     pub env: Box<dyn PufferEnv>,
 }
 
+/// Type alias for step result to reduce complexity
+type StepResultTuple = (Py<PyArrayDyn<f32>>, f32, bool, bool, PyObject);
+
 #[pymethods]
 impl PufferPythonEnv {
     /// Reset the environment
+    #[pyo3(signature = (seed=None))]
     fn reset(
         &mut self,
         py: Python,
@@ -27,11 +31,8 @@ impl PufferPythonEnv {
     }
 
     /// Step the environment
-    fn step(
-        &mut self,
-        py: Python,
-        action: Py<PyArrayDyn<f32>>,
-    ) -> PyResult<(Py<PyArrayDyn<f32>>, f32, bool, bool, PyObject)> {
+    #[allow(clippy::type_complexity)]
+    fn step(&mut self, py: Python, action: Py<PyArrayDyn<f32>>) -> PyResult<StepResultTuple> {
         // Convert Python array to ndarray
         let action_bound = action.bind(py);
         let action_array: ArrayD<f32> = unsafe { action_bound.as_array().to_owned() };

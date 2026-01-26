@@ -1,7 +1,5 @@
 //! WebAssembly bindings for PufferLib.
 
-use ndarray::ArrayD;
-use pufferlib::env::{PufferEnv, StepResult};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -9,6 +7,12 @@ pub struct PufferWasmEnv {
     // Note: We can't store Box<dyn PufferEnv> directly in a #[wasm_bindgen] struct
     // if we want to expose it to JS easily. We'll use a concrete type or a wrapper.
     // For now, this is a placeholder for the WASM environment bridge.
+}
+
+impl Default for PufferWasmEnv {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[wasm_bindgen]
