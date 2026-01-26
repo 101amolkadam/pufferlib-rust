@@ -25,6 +25,11 @@ pub trait SharedBuffer: Send + Sync {
     /// Get the size of the buffer in f32 elements
     fn len(&self) -> usize;
 
+    /// Check if the buffer is empty
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Get the name/identifier of the shared buffer
     fn name(&self) -> &str;
 }

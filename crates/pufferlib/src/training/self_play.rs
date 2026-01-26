@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 /// Entry in the policy pool
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct PolicyRecord {
     pub id: String,
     pub path: PathBuf,
@@ -49,6 +50,7 @@ impl PolicyPool {
     }
 
     /// Update ELO ratings for a match
+    #[allow(dead_code)]
     pub fn update_ratings(&mut self, winner_id: &str, loser_id: &str, draw: bool) {
         let k_factor = 32.0;
 
@@ -75,6 +77,7 @@ impl PolicyPool {
     }
 
     /// Get a policy record by ID
+    #[allow(dead_code)]
     pub fn get_policy(&self, id: &str) -> Option<&PolicyRecord> {
         self.policies.get(id)
     }
@@ -86,6 +89,7 @@ impl PolicyPool {
 }
 
 /// Helper to update ELO between two ratings
+#[allow(dead_code)]
 pub fn compute_elo_update(rating_a: f64, rating_b: f64, score_a: f64, k: f64) -> f64 {
     let expected_a = 1.0 / (1.0 + 10.0f64.powf((rating_b - rating_a) / 400.0));
     rating_a + k * (score_a - expected_a)

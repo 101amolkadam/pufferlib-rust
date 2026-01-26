@@ -179,7 +179,7 @@ impl Distribution {
             Self::Gaussian { mean: _, std } => {
                 let entropy = std.log() + 0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln();
                 DistributionSample::Torch(entropy.sum_dim_intlist(
-                    Some(&[-1 as i64][..]),
+                    Some(&[-1_i64][..]),
                     false,
                     Kind::Float,
                 ))

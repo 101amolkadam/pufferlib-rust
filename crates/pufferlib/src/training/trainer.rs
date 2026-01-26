@@ -11,7 +11,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::Instant;
 #[cfg(feature = "torch")]
-#[cfg(feature = "torch")]
 use tch::{nn, nn::OptimizerConfig, Device, Kind, Tensor};
 
 #[cfg(not(feature = "torch"))]
@@ -135,7 +134,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
     /// Run the training loop
     pub fn train(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (mut obs, _) = self.vecenv.reset(Some(self.config.seed));
+        let (obs, _) = self.vecenv.reset(Some(self.config.seed));
 
         while self.global_step < self.config.total_timesteps {
             // Collect rollout
@@ -267,12 +266,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                         DistributionSample::Candle(_) => panic!("Candle in torch path"),
                     };
                     let l_log_prob_sample = l_dist.log_prob(&l_action_sample);
-                    let l_log_prob = match l_log_prob_sample {
-                        #[cfg(feature = "torch")]
-                        DistributionSample::Torch(t) => t,
-                        #[cfg(feature = "candle")]
-                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                    };
+                    let DistributionSample::Torch(l_log_prob) = l_log_prob_sample;
 
                     // Pool forward pass (simple implementation: use one sampled policy for all pool agents)
                     let _pool_policy_record = self.pool.sample_policy().unwrap();
@@ -306,14 +300,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                         _ => panic!("Backend mismatch"),
                     };
                     let log_prob_sample = dist.log_prob(&action_sample);
-                    let log_prob = match log_prob_sample {
-                        #[cfg(feature = "torch")]
-                        DistributionSample::Torch(t) => t,
-                        #[cfg(feature = "candle")]
-                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                        #[allow(unreachable_patterns)]
-                        _ => panic!("Backend mismatch"),
-                    };
+                    let DistributionSample::Torch(log_prob) = log_prob_sample;
                     (action, log_prob, value, next_state)
                 };
 
