@@ -168,11 +168,8 @@ impl Distribution {
             Self::Categorical { logits } => {
                 let probs = logits.softmax(-1, Kind::Float);
                 let log_probs = logits.log_softmax(-1, Kind::Float);
-                let entropy = -(probs * log_probs).sum_dim_intlist(
-                    Some(&[-1_i64][..]),
-                    false,
-                    Kind::Float,
-                );
+                let entropy =
+                    -(probs * log_probs).sum_dim_intlist(Some(&[-1_i64][..]), false, Kind::Float);
                 DistributionSample::Torch(entropy)
             }
             #[cfg(feature = "torch")]
