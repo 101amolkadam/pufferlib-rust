@@ -203,7 +203,7 @@ impl Policy for MlpPolicy {
             let mean = mean_logstd[0].shallow_clone();
             // log_std clamped for stability
             let log_std = mean_logstd[1].clamp(-20.0, 2.0);
-            
+
             super::Distribution::Gaussian {
                 mean,
                 std: log_std.exp(),
@@ -241,7 +241,11 @@ impl CandleMlp {
         let mut in_size = obs_size;
 
         for _ in 0..config.num_layers {
-            encoder = encoder.add(candle_nn::linear(in_size, config.hidden_size as usize, vb.clone())?);
+            encoder = encoder.add(candle_nn::linear(
+                in_size,
+                config.hidden_size as usize,
+                vb.clone(),
+            )?);
             match config.activation {
                 Activation::ReLU => encoder = encoder.add_fn(|x| x.relu()),
                 Activation::Tanh => encoder = encoder.add_fn(|x| x.tanh()),
@@ -250,7 +254,11 @@ impl CandleMlp {
             in_size = config.hidden_size as usize;
         }
 
-        let actor_out = if is_continuous { num_actions * 2 } else { num_actions };
+        let actor_out = if is_continuous {
+            num_actions * 2
+        } else {
+            num_actions
+        };
         let actor = candle_nn::linear(config.hidden_size as usize, actor_out, vb.clone())?;
         let critic = candle_nn::linear(config.hidden_size as usize, 1, vb)?;
 
@@ -269,7 +277,10 @@ impl CandleMlp {
         use candle_nn::Module;
         let hidden = self.encoder.forward(observations)?;
         let actor_out = self.actor.forward(&hidden)?;
-        let value = self.critic.forward(&hidden)?.squeeze(candle_core::D::Minus1)?;
+        let value = self
+            .critic
+            .forward(&hidden)?
+            .squeeze(candle_core::D::Minus1)?;
 
         let dist = if self.is_continuous {
             let chunks = actor_out.chunk(2, candle_core::D::Minus1)?;

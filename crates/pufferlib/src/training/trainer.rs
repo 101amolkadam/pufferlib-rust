@@ -4,7 +4,7 @@ use super::buffer::ExperienceBuffer;
 use super::config::TrainerConfig;
 use super::ppo::{kl_divergence, ppo_dual_clip_policy_loss, ppo_policy_loss, ppo_value_loss};
 use super::self_play::PolicyPool;
-use crate::policy::{HasVarStore, Policy, DistributionSample};
+use crate::policy::{DistributionSample, HasVarStore, Policy};
 use crate::spaces::Space;
 use crate::vector::{ObservationBatch, VecEnvBackend};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -143,11 +143,9 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             // Compute returns and advantages
             let obs_tensor = match obs {
-                ObservationBatch::Cpu(ref a) => {
-                    Tensor::from_slice(a.as_slice().unwrap())
-                        .reshape([self.num_envs as i64, self.obs_size])
-                        .to_device(self.config.device)
-                }
+                ObservationBatch::Cpu(ref a) => Tensor::from_slice(a.as_slice().unwrap())
+                    .reshape([self.num_envs as i64, self.obs_size])
+                    .to_device(self.config.device),
                 #[cfg(feature = "torch")]
                 ObservationBatch::Torch(ref t) => t.to_device(self.config.device),
                 #[cfg(feature = "candle")]
@@ -203,11 +201,18 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             // Checkpointing and Self-Play Snapshotting
             if self.epoch > 0 {
-                if self.epoch.is_multiple_of(self.config.checkpoint_interval as u64) {
+                if self
+                    .epoch
+                    .is_multiple_of(self.config.checkpoint_interval as u64)
+                {
                     self.save_checkpoint();
                 }
 
-                if self.config.self_play_enabled && self.epoch.is_multiple_of(self.config.self_play_snapshot_interval as u64) {
+                if self.config.self_play_enabled
+                    && self
+                        .epoch
+                        .is_multiple_of(self.config.self_play_snapshot_interval as u64)
+                {
                     self.snapshot_policy();
                 }
             }
@@ -230,75 +235,87 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         for _ in 0..steps_per_env {
             // Convert obs to tensor
             let obs_tensor = match obs {
-                ObservationBatch::Cpu(ref a) => {
-                    Tensor::from_slice(a.as_slice().unwrap())
-                        .reshape([self.num_envs as i64, self.obs_size])
-                        .to_device(self.config.device)
-                }
+                ObservationBatch::Cpu(ref a) => Tensor::from_slice(a.as_slice().unwrap())
+                    .reshape([self.num_envs as i64, self.obs_size])
+                    .to_device(self.config.device),
                 #[cfg(feature = "torch")]
                 ObservationBatch::Torch(t) => t.to_device(self.config.device),
                 #[cfg(feature = "candle")]
                 ObservationBatch::Candle(_) => panic!("Candle backend in torch trainer"),
             };
 
-            let (action, log_prob, value, next_state) = if self.config.self_play_enabled && !self.pool.all_policies().is_empty() {
-                // Partition environments/agents between learner and pool
-                let num_learner = (self.num_envs as f64 * self.config.self_play_learner_ratio) as i64;
-                let num_pool = self.num_envs as i64 - num_learner;
+            let (action, log_prob, value, next_state) =
+                if self.config.self_play_enabled && !self.pool.all_policies().is_empty() {
+                    // Partition environments/agents between learner and pool
+                    let num_learner =
+                        (self.num_envs as f64 * self.config.self_play_learner_ratio) as i64;
+                    let num_pool = self.num_envs as i64 - num_learner;
 
-                // Learner forward pass
-                let learner_obs = obs_tensor.narrow(0, 0, num_learner);
-                let learner_state = self.state.as_ref().map(|s| s.iter().map(|t| t.narrow(1, 0, num_learner)).collect());
-                let (l_dist, l_value, l_next_state) = self.policy.forward(&learner_obs, &learner_state);
-                let l_action_sample = l_dist.sample();
-                let l_action = match l_action_sample {
-                    #[cfg(feature = "torch")]
-                    DistributionSample::Torch(ref t) => t.shallow_clone(),
-                    #[cfg(feature = "candle")]
-                    DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                };
-                let l_log_prob_sample = l_dist.log_prob(&l_action_sample);
-                let l_log_prob = match l_log_prob_sample {
-                     #[cfg(feature = "torch")]
-                    DistributionSample::Torch(t) => t,
-                    #[cfg(feature = "candle")]
-                    DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                };
+                    // Learner forward pass
+                    let learner_obs = obs_tensor.narrow(0, 0, num_learner);
+                    let learner_state = self
+                        .state
+                        .as_ref()
+                        .map(|s| s.iter().map(|t| t.narrow(1, 0, num_learner)).collect());
+                    let (l_dist, l_value, l_next_state) =
+                        self.policy.forward(&learner_obs, &learner_state);
+                    let l_action_sample = l_dist.sample();
+                    let l_action = match l_action_sample {
+                        #[cfg(feature = "torch")]
+                        DistributionSample::Torch(ref t) => t.shallow_clone(),
+                        #[cfg(feature = "candle")]
+                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
+                    };
+                    let l_log_prob_sample = l_dist.log_prob(&l_action_sample);
+                    let l_log_prob = match l_log_prob_sample {
+                        #[cfg(feature = "torch")]
+                        DistributionSample::Torch(t) => t,
+                        #[cfg(feature = "candle")]
+                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
+                    };
 
-                // Pool forward pass (simple implementation: use one sampled policy for all pool agents)
-                let _pool_policy_record = self.pool.sample_policy().unwrap();
-                
-                let p_action = Tensor::zeros([num_pool, self.action_size], (Kind::Float, self.config.device));
-                let p_log_prob = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
-                let p_value = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
+                    // Pool forward pass (simple implementation: use one sampled policy for all pool agents)
+                    let _pool_policy_record = self.pool.sample_policy().unwrap();
 
-                let combined_action = Tensor::cat(&[l_action, p_action], 0);
-                let combined_log_prob = Tensor::cat(&[l_log_prob, p_log_prob], 0);
-                let combined_value = Tensor::cat(&[l_value, p_value], 0);
-                
-                (combined_action, combined_log_prob, combined_value, l_next_state)
-            } else {
-                let (dist, value, next_state) = self.policy.forward(&obs_tensor, &self.state);
-                let action_sample = dist.sample();
-                let action = match action_sample {
-                    #[cfg(feature = "torch")]
-                    DistributionSample::Torch(ref t) => t.shallow_clone(),
-                    #[cfg(feature = "candle")]
-                    DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                    #[allow(unreachable_patterns)]
-                    _ => panic!("Backend mismatch"),
+                    let p_action = Tensor::zeros(
+                        [num_pool, self.action_size],
+                        (Kind::Float, self.config.device),
+                    );
+                    let p_log_prob = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
+                    let p_value = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
+
+                    let combined_action = Tensor::cat(&[l_action, p_action], 0);
+                    let combined_log_prob = Tensor::cat(&[l_log_prob, p_log_prob], 0);
+                    let combined_value = Tensor::cat(&[l_value, p_value], 0);
+
+                    (
+                        combined_action,
+                        combined_log_prob,
+                        combined_value,
+                        l_next_state,
+                    )
+                } else {
+                    let (dist, value, next_state) = self.policy.forward(&obs_tensor, &self.state);
+                    let action_sample = dist.sample();
+                    let action = match action_sample {
+                        #[cfg(feature = "torch")]
+                        DistributionSample::Torch(ref t) => t.shallow_clone(),
+                        #[cfg(feature = "candle")]
+                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
+                        #[allow(unreachable_patterns)]
+                        _ => panic!("Backend mismatch"),
+                    };
+                    let log_prob_sample = dist.log_prob(&action_sample);
+                    let log_prob = match log_prob_sample {
+                        #[cfg(feature = "torch")]
+                        DistributionSample::Torch(t) => t,
+                        #[cfg(feature = "candle")]
+                        DistributionSample::Candle(_) => panic!("Candle in torch path"),
+                        #[allow(unreachable_patterns)]
+                        _ => panic!("Backend mismatch"),
+                    };
+                    (action, log_prob, value, next_state)
                 };
-                let log_prob_sample = dist.log_prob(&action_sample);
-                let log_prob = match log_prob_sample {
-                     #[cfg(feature = "torch")]
-                    DistributionSample::Torch(t) => t,
-                    #[cfg(feature = "candle")]
-                    DistributionSample::Candle(_) => panic!("Candle in torch path"),
-                    #[allow(unreachable_patterns)]
-                    _ => panic!("Backend mismatch"),
-                };
-                (action, log_prob, value, next_state)
-            };
 
             // Convert action to ndarray
             let action_vec: Vec<f32> =
@@ -315,7 +332,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             // Store in buffer
             let rewards = Tensor::from_slice(&result.rewards);
             self.mean_reward = result.rewards.iter().sum::<f32>() as f64 / self.num_envs as f64;
-            
+
             let dones_bool = result.dones();
             let dones: Vec<f32> = dones_bool
                 .iter()
@@ -373,11 +390,18 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
                 // Forward pass
                 let (dist, values, _) = self.policy.forward(&batch.observations, &None);
-                
+
                 #[cfg(feature = "torch")]
                 let action_sample = DistributionSample::Torch(batch.actions.shallow_clone());
                 #[cfg(not(feature = "torch"))]
-                let action_sample = DistributionSample::Candle(candle_core::Tensor::zeros((1,), candle_core::DType::F32, &candle_core::Device::Cpu).unwrap());
+                let action_sample = DistributionSample::Candle(
+                    candle_core::Tensor::zeros(
+                        (1,),
+                        candle_core::DType::F32,
+                        &candle_core::Device::Cpu,
+                    )
+                    .unwrap(),
+                );
 
                 let new_log_probs_sample = dist.log_prob(&action_sample);
                 let entropy_sample = dist.entropy();
@@ -474,7 +498,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             // Early stopping and Adaptive KL adjustment
             if !epoch_kls.is_empty() {
                 let mean_kl = epoch_kls.iter().sum::<f64>() / epoch_kls.len() as f64;
-                
+
                 // Adaptive KL adjustment (original PufferLib logic)
                 if self.config.kl_adaptive {
                     if mean_kl < self.config.target_kl / 1.5 {
@@ -546,7 +570,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
     fn snapshot_policy(&mut self) {
         let snapshot_id = format!("snapshot_{:06}", self.epoch);
         let path = PathBuf::from(&self.config.data_dir).join(format!("{}.pt", snapshot_id));
-        
+
         tracing::info!(id = %snapshot_id, path = ?path, "Snapshotting policy for self-play");
 
         if let Err(e) = self.policy.var_store().save(&path) {

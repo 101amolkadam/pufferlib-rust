@@ -59,7 +59,10 @@ impl<E: PufferEnv> Parallel<E> {
             match super::Win32SharedBuffer::new(&name, total_obs_size) {
                 Ok(buf) => Some(Box::new(buf) as Box<dyn super::SharedBuffer>),
                 Err(e) => {
-                    tracing::warn!("Failed to create shared buffer: {}. Falling back to heap.", e);
+                    tracing::warn!(
+                        "Failed to create shared buffer: {}. Falling back to heap.",
+                        e
+                    );
                     None
                 }
             }
@@ -102,7 +105,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
             .map(|(i, env)| {
                 let env_seed = seed.map(|s| s + i as u64);
                 let (obs, info) = env.reset(env_seed);
-                
+
                 // Zero-copy write if buffer exists
                 if let Some(send_ptr) = buffer_ptr {
                     let ptr = send_ptr.0;
@@ -111,7 +114,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                         std::ptr::copy_nonoverlapping(obs.as_ptr(), offset_ptr, obs_size);
                     }
                 }
-                
+
                 (obs, info)
             })
             .collect();
@@ -121,8 +124,12 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
         // Compatibility: Return an owned Array2 by stacking.
         // The data is ALSO in the shared buffer for the trainer to use (Zero-Copy Read).
         let observations: Vec<_> = results.into_iter().map(|(o, _)| o).collect();
-        let flat_obs: Vec<f32> = observations.iter().flat_map(|o| o.iter().copied()).collect();
-        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs).expect("Failed to create observation array");
+        let flat_obs: Vec<f32> = observations
+            .iter()
+            .flat_map(|o| o.iter().copied())
+            .collect();
+        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs)
+            .expect("Failed to create observation array");
 
         (ObservationBatch::Cpu(obs_array), infos)
     }
@@ -163,7 +170,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                         std::ptr::copy_nonoverlapping(result.0.as_ptr(), offset_ptr, obs_size);
                     }
                 }
-                
+
                 result
             })
             .collect();
@@ -174,8 +181,12 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
         let infos: Vec<_> = results.iter().map(|(_, _, _, _, i)| i.clone()).collect();
 
         let observations: Vec<_> = results.into_iter().map(|(o, _, _, _, _)| o).collect();
-        let flat_obs: Vec<f32> = observations.iter().flat_map(|o| o.iter().copied()).collect();
-        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs).expect("Failed to create observation array");
+        let flat_obs: Vec<f32> = observations
+            .iter()
+            .flat_map(|o| o.iter().copied())
+            .collect();
+        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs)
+            .expect("Failed to create observation array");
 
         VecEnvResult {
             observations: ObservationBatch::Cpu(obs_array),

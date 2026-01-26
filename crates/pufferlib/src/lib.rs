@@ -47,10 +47,10 @@ pub mod prelude {
     pub use crate::spaces::*;
     pub use crate::vector::{VecEnv, VecEnvConfig};
 
-    #[cfg(feature = "torch")]
-    pub use crate::policy::{CnnPolicy, HasVarStore, LstmPolicy, MlpPolicy, Policy};
     #[cfg(feature = "candle")]
     pub use crate::policy::CandleMlp;
+    #[cfg(feature = "torch")]
+    pub use crate::policy::{CnnPolicy, HasVarStore, LstmPolicy, MlpPolicy, Policy};
 
     #[cfg(feature = "torch")]
     pub use crate::training::{ExperienceBuffer, Trainer, TrainerConfig};

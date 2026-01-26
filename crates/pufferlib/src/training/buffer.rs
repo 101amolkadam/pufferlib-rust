@@ -80,7 +80,7 @@ impl ExperienceBuffer {
         // If we did that, we can skip this copy.
         let mut obs_slice = self.observations.narrow(0, start, end - start);
         if !obs_slice.allclose(observations, 1e-8, 1e-8, false) {
-             obs_slice.copy_(observations);
+            obs_slice.copy_(observations);
         }
 
         self.actions.narrow(0, start, end - start).copy_(actions);

@@ -1,9 +1,12 @@
 //! Bayesian Hyperparameter Optimization (HPO) system.
 
+use rand::seq::SliceRandom;
+use rand::{
+    distributions::{Distribution as RandDistribution, Uniform},
+    Rng,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use rand::{Rng, distributions::{Distribution as RandDistribution, Uniform}};
-use rand::seq::SliceRandom;
 
 /// Types of hyperparameter ranges
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -124,9 +127,14 @@ impl Study {
     }
 
     pub fn best_trial(&self) -> Option<&Trial> {
-        self.trials.iter()
+        self.trials
+            .iter()
             .filter(|t| t.status == TrialStatus::Complete)
-            .max_by(|a, b| a.value.partial_cmp(&b.value).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.value
+                    .partial_cmp(&b.value)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Suggest new parameters using a simple Bayesian logic (TPE-inspired)
@@ -139,26 +147,32 @@ impl Study {
         // Simplified TPE:
         // 1. Split trials into "best" (top 25%) and "others".
         // 2. Pick a parameter set from "best" and add small noise.
-        let mut complete_trials: Vec<&Trial> = self.trials.iter()
+        let mut complete_trials: Vec<&Trial> = self
+            .trials
+            .iter()
             .filter(|t| t.status == TrialStatus::Complete)
             .collect();
-        
+
         if complete_trials.is_empty() {
             return self.search_space.sample();
         }
 
-        complete_trials.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap_or(std::cmp::Ordering::Equal));
-        
+        complete_trials.sort_by(|a, b| {
+            b.value
+                .partial_cmp(&a.value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let top_n = (complete_trials.len() as f64 * 0.25).max(1.0) as usize;
         let best_trials = &complete_trials[..top_n];
 
         let mut rng = rand::thread_rng();
         let selected_trial = best_trials.choose(&mut rng).unwrap();
-        
+
         let mut suggested_params = HashMap::new();
         for (name, range) in &self.search_space.parameters {
             let current_val = *selected_trial.params.get(name).unwrap();
-            
+
             // Add Gaussian noise (simplified Bayesian move)
             let val = match range {
                 ParameterRange::Uniform(min, max) => {
@@ -178,7 +192,11 @@ impl Study {
                 }
                 ParameterRange::Categorical(_) => {
                     // For categorical, either keep or pick random
-                    if rng.gen_bool(0.8) { current_val } else { range.sample() }
+                    if rng.gen_bool(0.8) {
+                        current_val
+                    } else {
+                        range.sample()
+                    }
                 }
             };
             suggested_params.insert(name.clone(), val);

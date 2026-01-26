@@ -1,7 +1,7 @@
 //! Self-play system for training against historical versions of the policy.
 
-use std::collections::HashMap;
 use rand::seq::SliceRandom;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Entry in the policy pool
@@ -43,13 +43,15 @@ impl PolicyPool {
     /// Sample a policy from the pool for matching
     pub fn sample_policy(&self) -> Option<&PolicyRecord> {
         let mut rng = rand::thread_rng();
-        self.active_ids.choose(&mut rng).and_then(|id| self.policies.get(id))
+        self.active_ids
+            .choose(&mut rng)
+            .and_then(|id| self.policies.get(id))
     }
 
     /// Update ELO ratings for a match
     pub fn update_ratings(&mut self, winner_id: &str, loser_id: &str, draw: bool) {
         let k_factor = 32.0;
-        
+
         let (r_w, r_l) = match (self.policies.get(winner_id), self.policies.get(loser_id)) {
             (Some(w), Some(l)) => (w.rating, l.rating),
             _ => return,
@@ -100,7 +102,7 @@ mod tests {
         pool.add_policy("agent2".to_string(), PathBuf::from("p2"), 1000.0);
 
         pool.update_ratings("agent1", "agent2", false);
-        
+
         let p1 = pool.get_policy("agent1").unwrap();
         let p2 = pool.get_policy("agent2").unwrap();
 

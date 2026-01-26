@@ -14,17 +14,17 @@ pub use cnn::CnnPolicy;
 pub use distribution::{Distribution, DistributionSample};
 #[cfg(feature = "torch")]
 pub use lstm::LstmPolicy;
+#[cfg(feature = "candle")]
+pub use mlp::CandleMlp;
 pub use mlp::MlpConfig;
 #[cfg(feature = "torch")]
 pub use mlp::MlpPolicy;
-#[cfg(feature = "candle")]
-pub use mlp::CandleMlp;
 
 #[cfg(feature = "torch")]
 use tch::{nn, Tensor};
 
 #[cfg(feature = "candle")]
-use candle_core::{Tensor as CandleTensor, Device as CandleDevice};
+use candle_core::{Device as CandleDevice, Tensor as CandleTensor};
 #[cfg(feature = "candle")]
 use candle_nn as candle_nn_backend;
 

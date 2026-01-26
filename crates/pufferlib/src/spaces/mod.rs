@@ -75,8 +75,12 @@ impl DynSpace {
                 s.flatten_to(&v, out);
             }
             DynSpace::Box(s) => s.flatten_to(value, out),
-            DynSpace::Dict(_) => panic!("Dict space should be flattened recursively via nested samples"),
-            DynSpace::Tuple(_) => panic!("Tuple space should be flattened recursively via nested samples"),
+            DynSpace::Dict(_) => {
+                panic!("Dict space should be flattened recursively via nested samples")
+            }
+            DynSpace::Tuple(_) => {
+                panic!("Tuple space should be flattened recursively via nested samples")
+            }
         }
     }
 

@@ -12,11 +12,14 @@ pub enum Distribution {
     Categorical { logits: TorchTensor },
     #[cfg(feature = "torch")]
     Gaussian { mean: TorchTensor, std: TorchTensor },
-    
+
     #[cfg(feature = "candle")]
     CandleCategorical { logits: CandleTensor },
     #[cfg(feature = "candle")]
-    CandleGaussian { mean: CandleTensor, std: CandleTensor },
+    CandleGaussian {
+        mean: CandleTensor,
+        std: CandleTensor,
+    },
 }
 
 /// Helper to handle heterogeneous sample types
@@ -52,27 +55,27 @@ impl Distribution {
     pub fn sample(&self) -> DistributionSample {
         match self {
             #[cfg(feature = "torch")]
-            Distribution::Categorical { logits } => {
-                DistributionSample::Torch(logits
+            Distribution::Categorical { logits } => DistributionSample::Torch(
+                logits
                     .softmax(-1, Kind::Float)
                     .multinomial(1, true)
-                    .squeeze_dim(-1))
-            },
+                    .squeeze_dim(-1),
+            ),
             #[cfg(feature = "torch")]
             Distribution::Gaussian { mean, std } => {
                 let noise = TorchTensor::randn_like(mean);
                 DistributionSample::Torch(mean + noise * std)
-            },
+            }
             #[cfg(feature = "candle")]
             Distribution::CandleCategorical { logits } => {
                 let probs = candle_nn::ops::softmax(logits, candle_core::D::Minus1).unwrap();
                 DistributionSample::Candle(probs.argmax(candle_core::D::Minus1).unwrap())
-            },
+            }
             #[cfg(feature = "candle")]
             Distribution::CandleGaussian { mean, std } => {
                 let noise = CandleTensor::randn_like(mean, 0.0, 1.0).unwrap();
                 DistributionSample::Candle((mean + (noise * std).unwrap()).unwrap())
-            },
+            }
         }
     }
 
@@ -82,9 +85,11 @@ impl Distribution {
             #[cfg(feature = "torch")]
             (Distribution::Categorical { logits }, DistributionSample::Torch(ref actions)) => {
                 let log_probs = logits.log_softmax(-1, Kind::Float);
-                DistributionSample::Torch(log_probs
-                    .gather(-1, &actions.unsqueeze(-1).to_kind(Kind::Int64), false)
-                    .squeeze_dim(-1))
+                DistributionSample::Torch(
+                    log_probs
+                        .gather(-1, &actions.unsqueeze(-1).to_kind(Kind::Int64), false)
+                        .squeeze_dim(-1),
+                )
             }
             #[cfg(feature = "torch")]
             (Distribution::Gaussian { mean, std }, DistributionSample::Torch(ref actions)) => {
@@ -96,26 +101,60 @@ impl Distribution {
                 let sq_diff = (actions - mean).pow_tensor_scalar(2.0);
                 let element_wise_log_prob =
                     (sq_diff / (var + 1e-8) + log_std * 2.0 + log_2pi_tensor) * -0.5;
-                DistributionSample::Torch(element_wise_log_prob.sum_dim_intlist([-1i64].as_slice(), false, Kind::Float))
+                DistributionSample::Torch(element_wise_log_prob.sum_dim_intlist(
+                    [-1i64].as_slice(),
+                    false,
+                    Kind::Float,
+                ))
             }
             #[cfg(feature = "candle")]
-            (Distribution::CandleCategorical { logits }, DistributionSample::Candle(ref actions)) => {
-                let log_probs = candle_nn::ops::log_softmax(logits, candle_core::D::Minus1).expect("log_softmax failed");
+            (
+                Distribution::CandleCategorical { logits },
+                DistributionSample::Candle(ref actions),
+            ) => {
+                let log_probs = candle_nn::ops::log_softmax(logits, candle_core::D::Minus1)
+                    .expect("log_softmax failed");
                 // Gather log_probs based on actions
                 // actions shape: [N], log_probs shape: [N, C]
-                let actions_expanded = actions.unsqueeze(candle_core::D::Minus1).expect("unsqueeze failed");
-                DistributionSample::Candle(log_probs.gather(&actions_expanded, candle_core::D::Minus1).expect("gather failed").squeeze(candle_core::D::Minus1).expect("squeeze failed"))
+                let actions_expanded = actions
+                    .unsqueeze(candle_core::D::Minus1)
+                    .expect("unsqueeze failed");
+                DistributionSample::Candle(
+                    log_probs
+                        .gather(&actions_expanded, candle_core::D::Minus1)
+                        .expect("gather failed")
+                        .squeeze(candle_core::D::Minus1)
+                        .expect("squeeze failed"),
+                )
             }
             #[cfg(feature = "candle")]
-            (Distribution::CandleGaussian { mean, std }, DistributionSample::Candle(ref actions)) => {
+            (
+                Distribution::CandleGaussian { mean, std },
+                DistributionSample::Candle(ref actions),
+            ) => {
                 let var = (std * std).expect("pow failed");
                 let log_std = std.log().expect("log failed");
                 let log_2pi = (2.0 * std::f64::consts::PI).ln();
-                
-                let sq_diff = ((actions - mean).expect("sub failed") * (actions - mean).expect("sub failed")).expect("mul failed");
-                let element_wise_log_prob = ((sq_diff.div(&(var + 1e-8).expect("add failed")).expect("div failed") + (log_std * 2.0).expect("mul failed").add(&candle_core::Tensor::new(log_2pi, mean.device()).expect("new failed")).expect("add failed")).expect("add failed") * -0.5).expect("final mul failed");
-                
-                DistributionSample::Candle(element_wise_log_prob.sum(candle_core::D::Minus1).expect("sum failed"))
+
+                let sq_diff = ((actions - mean).expect("sub failed")
+                    * (actions - mean).expect("sub failed"))
+                .expect("mul failed");
+                let element_wise_log_prob = ((sq_diff
+                    .div(&(var + 1e-8).expect("add failed"))
+                    .expect("div failed")
+                    + (log_std * 2.0)
+                        .expect("mul failed")
+                        .add(&candle_core::Tensor::new(log_2pi, mean.device()).expect("new failed"))
+                        .expect("add failed"))
+                .expect("add failed")
+                    * -0.5)
+                    .expect("final mul failed");
+
+                DistributionSample::Candle(
+                    element_wise_log_prob
+                        .sum(candle_core::D::Minus1)
+                        .expect("sum failed"),
+                )
             }
             #[allow(unreachable_patterns)]
             _ => panic!("Backend mismatch in log_prob"),
@@ -140,22 +179,32 @@ impl Distribution {
             Self::Gaussian { mean: _, std } => {
                 let entropy = std.log() + 0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln();
                 DistributionSample::Torch(entropy.sum_dim_intlist(
-                     Some(&[-1 as i64][..]),
+                    Some(&[-1 as i64][..]),
                     false,
                     Kind::Float,
                 ))
             }
             #[cfg(feature = "candle")]
             Self::CandleCategorical { logits } => {
-                let probs = candle_nn::ops::softmax(logits, candle_core::D::Minus1).expect("softmax failed");
-                let log_probs = candle_nn::ops::log_softmax(logits, candle_core::D::Minus1).expect("log_softmax failed");
-                DistributionSample::Candle(((&probs * &log_probs).expect("mul failed").sum(candle_core::D::Minus1).expect("sum failed") * -1.0).expect("negation failed"))
+                let probs = candle_nn::ops::softmax(logits, candle_core::D::Minus1)
+                    .expect("softmax failed");
+                let log_probs = candle_nn::ops::log_softmax(logits, candle_core::D::Minus1)
+                    .expect("log_softmax failed");
+                DistributionSample::Candle(
+                    ((&probs * &log_probs)
+                        .expect("mul failed")
+                        .sum(candle_core::D::Minus1)
+                        .expect("sum failed")
+                        * -1.0)
+                        .expect("negation failed"),
+                )
             }
             #[cfg(feature = "candle")]
             Self::CandleGaussian { mean: _, std } => {
                 // H = log(std * sqrt(2 * pi * e))
                 let log_std = std.log().expect("log failed");
-                let entropy = (log_std + (0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln())).expect("entropy computation failed");
+                let entropy = (log_std + (0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln()))
+                    .expect("entropy computation failed");
                 DistributionSample::Candle(entropy.sum(candle_core::D::Minus1).expect("sum failed"))
             }
         }

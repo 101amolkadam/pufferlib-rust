@@ -1,7 +1,7 @@
 #![cfg(feature = "torch")]
 //! CLI module for hyperparameter optimization.
 
-pub use pufferlib::training::hpo::{Study, SearchSpace, ParameterRange};
+pub use pufferlib::training::hpo::{ParameterRange, SearchSpace, Study};
 use std::collections::HashMap;
 
 /// Result of an HPO run
@@ -16,26 +16,26 @@ pub fn run_hpo_study<F>(
     space: SearchSpace,
     num_trials: usize,
     mut run_trial_func: F,
-) -> HpoResult 
-where 
-    F: FnMut(usize, HashMap<String, f64>) -> f64
+) -> HpoResult
+where
+    F: FnMut(usize, HashMap<String, f64>) -> f64,
 {
     let mut study = Study::new(name, space);
 
     for _ in 0..num_trials {
         let params = study.suggest();
         let trial_id = study.create_trial(params.clone());
-        
+
         tracing::info!(trial = trial_id, params = ?params, "Starting HPO trial");
-        
+
         let value = run_trial_func(trial_id, params);
-        
+
         study.complete_trial(trial_id, value);
-        
+
         let best = study.best_trial().unwrap();
         tracing::info!(
-            trial = trial_id, 
-            value = value, 
+            trial = trial_id,
+            value = value,
             best_value = best.value.unwrap(),
             "Completed HPO trial"
         );

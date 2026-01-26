@@ -177,11 +177,7 @@ pub fn ppo_dual_clip_policy_loss(
 /// Compute Soft Actor-Critic (SAC) style entropy-regularized loss
 /// Note: Full SAC requires off-policy training, but this provides the focal point
 /// for entropy maximization in on-policy settings.
-pub fn sac_loss(
-    values: &Tensor,
-    log_probs: &Tensor,
-    alpha: f64,
-) -> Tensor {
+pub fn sac_loss(values: &Tensor, log_probs: &Tensor, alpha: f64) -> Tensor {
     // SAC objective: J = E[Q(s,a) - alpha * log_p(a|s)]
     // In on-policy contexts, this often manifests as entropy maximization
     (alpha * log_probs - values).mean(Kind::Float)

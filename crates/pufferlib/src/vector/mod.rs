@@ -21,10 +21,10 @@ pub use windows_shared::Win32SharedBuffer;
 pub trait SharedBuffer: Send + Sync {
     /// Get a raw pointer to the start of the buffer
     fn as_ptr(&self) -> *mut f32;
-    
+
     /// Get the size of the buffer in f32 elements
     fn len(&self) -> usize;
-    
+
     /// Get the name/identifier of the shared buffer
     fn name(&self) -> &str;
 }

@@ -17,10 +17,10 @@ impl Win32SharedBuffer {
     /// Create a new named shared buffer
     pub fn new(name: &str, len: usize) -> Result<Self, String> {
         let size = (len * std::mem::size_of::<f32>()) as u32;
-        
+
         // Convert name to UTF-16 for Win32 API
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
-        
+
         unsafe {
             let handle = CreateFileMappingW(
                 INVALID_HANDLE_VALUE,
@@ -30,17 +30,17 @@ impl Win32SharedBuffer {
                 size,
                 wide_name.as_ptr(),
             );
-            
+
             if handle.is_null() {
                 return Err(format!("Failed to create file mapping: {}", name));
             }
-            
+
             let ptr = MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, size as usize);
             if ptr.Value.is_null() {
                 CloseHandle(handle);
                 return Err(format!("Failed to map view of file: {}", name));
             }
-            
+
             Ok(Self {
                 name: name.to_string(),
                 handle,
@@ -55,11 +55,11 @@ impl SharedBuffer for Win32SharedBuffer {
     fn as_ptr(&self) -> *mut f32 {
         self.ptr.as_ptr()
     }
-    
+
     fn len(&self) -> usize {
         self.len
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -68,7 +68,11 @@ impl SharedBuffer for Win32SharedBuffer {
 impl Drop for Win32SharedBuffer {
     fn drop(&mut self) {
         unsafe {
-            UnmapViewOfFile(windows_sys::Win32::System::Memory::MEMORY_MAPPED_VIEW_ADDRESS { Value: self.ptr.as_ptr() as *mut _ });
+            UnmapViewOfFile(
+                windows_sys::Win32::System::Memory::MEMORY_MAPPED_VIEW_ADDRESS {
+                    Value: self.ptr.as_ptr() as *mut _,
+                },
+            );
             CloseHandle(self.handle);
         }
     }

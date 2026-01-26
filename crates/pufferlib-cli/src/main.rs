@@ -72,17 +72,17 @@ enum Commands {
         #[arg(long, default_value = "100")]
         steps: usize,
     },
-    
+
     /// Auto-Tune: Search for best hyperparameters (Protein)
     AutoTune {
         /// Environment name
         #[arg(default_value = "cartpole")]
         env: String,
-        
+
         /// Number of trials
         #[arg(long, default_value = "20")]
         trials: usize,
-        
+
         /// Steps per trial
         #[arg(long, default_value = "50000")]
         steps: u64,
@@ -125,7 +125,11 @@ fn main() -> Result<()> {
         Commands::Demo { env, steps } => {
             demo(&env, steps)?;
         }
-        Commands::AutoTune { env: _env, trials: _trials, steps: _steps } => {
+        Commands::AutoTune {
+            env: _env,
+            trials: _trials,
+            steps: _steps,
+        } => {
             #[cfg(feature = "torch")]
             {
                 autotune(&_env, _trials, _steps)?;
@@ -477,45 +481,40 @@ fn autotune(_env_name: &str, num_trials: usize, steps_per_trial: u64) -> Result<
     space.add("learning_rate", ParameterRange::LogUniform(1e-4, 1e-2));
     space.add("vf_coef", ParameterRange::Uniform(0.1, 1.0));
 
-    let result = run_hpo_study(
-        "protein_autotune",
-        space,
-        num_trials,
-        |trial_id, params| {
-            let lr = *params.get("learning_rate").unwrap();
-            let vf_coef = *params.get("vf_coef").unwrap();
+    let result = run_hpo_study("protein_autotune", space, num_trials, |trial_id, params| {
+        let lr = *params.get("learning_rate").unwrap();
+        let vf_coef = *params.get("vf_coef").unwrap();
 
-            tracing::info!(trial = trial_id, lr, vf_coef, "Running HPO trial");
+        tracing::info!(trial = trial_id, lr, vf_coef, "Running HPO trial");
 
-            let device = tch::Device::Cpu;
-            let make_env = || Bandit::new(4);
-            let envs = VecEnv::from_backend(Serial::new(make_env, 1));
-            let obs_size = envs.observation_space().shape()[0];
-            let num_actions = 4i64;
+        let device = tch::Device::Cpu;
+        let make_env = || Bandit::new(4);
+        let envs = VecEnv::from_backend(Serial::new(make_env, 1));
+        let obs_size = envs.observation_space().shape()[0];
+        let num_actions = 4i64;
 
-            let config = MlpConfig::default();
-            let policy = MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
+        let config = MlpConfig::default();
+        let policy = MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
 
-            let trainer_config = pufferlib::training::TrainerConfig {
-                total_timesteps: steps_per_trial,
-                learning_rate: lr,
-                vf_coef,
-                ..Default::default()
-            };
+        let trainer_config = pufferlib::training::TrainerConfig {
+            total_timesteps: steps_per_trial,
+            learning_rate: lr,
+            vf_coef,
+            ..Default::default()
+        };
 
-            let mut trainer = pufferlib::training::Trainer::new(envs, policy, trainer_config, device);
-            trainer.trial_id = Some(trial_id);
+        let mut trainer = pufferlib::training::Trainer::new(envs, policy, trainer_config, device);
+        trainer.trial_id = Some(trial_id);
 
-            if let Err(e) = trainer.train() {
-                tracing::error!(trial = trial_id, error = %e, "Trial failed");
-                return -1e9;
-            }
+        if let Err(e) = trainer.train() {
+            tracing::error!(trial = trial_id, error = %e, "Trial failed");
+            return -1e9;
+        }
 
-            let final_reward = trainer.reward();
-            tracing::info!(trial = trial_id, reward = final_reward, "Trial completed");
-            final_reward
-        },
-    );
+        let final_reward = trainer.reward();
+        tracing::info!(trial = trial_id, reward = final_reward, "Trial completed");
+        final_reward
+    });
 
     tracing::info!(
         best_reward = result.best_value,
