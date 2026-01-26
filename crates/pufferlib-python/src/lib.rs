@@ -16,6 +16,7 @@ pub struct PufferPythonEnv {
 type StepResultTuple = (Py<PyArrayDyn<f32>>, f32, bool, bool, PyObject);
 
 #[pymethods]
+#[allow(clippy::useless_conversion)]
 impl PufferPythonEnv {
     /// Reset the environment
     #[pyo3(signature = (seed=None))]
@@ -25,8 +26,8 @@ impl PufferPythonEnv {
         seed: Option<u64>,
     ) -> PyResult<(Py<PyArrayDyn<f32>>, PyObject)> {
         let (obs, _info) = self.env.reset(seed);
-        let py_obs = obs.to_pyarray_bound(py).to_owned().into();
-        let py_info = PyDict::new_bound(py).into();
+        let py_obs = obs.to_pyarray_bound(py).unbind();
+        let py_info = PyDict::new_bound(py).unbind().into_any();
         Ok((py_obs, py_info))
     }
 
@@ -39,8 +40,8 @@ impl PufferPythonEnv {
 
         let result: StepResult = self.env.step(&action_array);
 
-        let py_obs = result.observation.to_pyarray_bound(py).to_owned().into();
-        let py_info = PyDict::new_bound(py).into();
+        let py_obs = result.observation.to_pyarray_bound(py).unbind();
+        let py_info = PyDict::new_bound(py).unbind().into_any();
 
         Ok((
             py_obs,
