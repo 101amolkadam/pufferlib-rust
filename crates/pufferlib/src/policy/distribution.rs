@@ -90,11 +90,7 @@ impl Distribution {
                 } else {
                     actions.unsqueeze(-1).to_kind(Kind::Int64)
                 };
-                DistributionSample::Torch(
-                    log_probs
-                        .gather(-1, &indices, false)
-                        .squeeze_dim(-1),
-                )
+                DistributionSample::Torch(log_probs.gather(-1, &indices, false).squeeze_dim(-1))
             }
             #[cfg(feature = "torch")]
             (Distribution::Gaussian { mean, std }, DistributionSample::Torch(ref actions)) => {

@@ -132,7 +132,15 @@ fn main() -> Result<()> {
         } => {
             #[cfg(feature = "torch")]
             {
-                train(&_env, _timesteps, _lr, _num_envs, &_policy, _resume, _curriculum)?;
+                train(
+                    &_env,
+                    _timesteps,
+                    _lr,
+                    _num_envs,
+                    &_policy,
+                    _resume,
+                    _curriculum,
+                )?;
             }
             #[cfg(not(feature = "torch"))]
             {
@@ -267,13 +275,27 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
+                    run_training_thread(
+                        envs,
+                        policy,
+                        trainer_config,
+                        device,
+                        resume.clone(),
+                        curriculum.clone(),
+                    )?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
+                    run_training_thread(
+                        envs,
+                        policy,
+                        trainer_config,
+                        device,
+                        resume.clone(),
+                        curriculum.clone(),
+                    )?;
                 }
             } else {
                 let envs = VecEnv::from_backend(Serial::new(make_env, num_envs));
@@ -281,13 +303,27 @@ fn train(
                 if policy_type == "lstm" {
                     let policy = LstmPolicy::new(obs_size as i64, num_actions, 64, device);
                     tracing::info!(params = policy.num_parameters(), "Created LSTM policy");
-                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
+                    run_training_thread(
+                        envs,
+                        policy,
+                        trainer_config,
+                        device,
+                        resume.clone(),
+                        curriculum.clone(),
+                    )?;
                 } else {
                     let config = MlpConfig::default();
                     let policy =
                         MlpPolicy::new(obs_size as i64, num_actions, false, config, device);
                     tracing::info!(params = policy.num_parameters(), "Created MLP policy");
-                    run_training_thread(envs, policy, trainer_config, device, resume.clone(), curriculum.clone())?;
+                    run_training_thread(
+                        envs,
+                        policy,
+                        trainer_config,
+                        device,
+                        resume.clone(),
+                        curriculum.clone(),
+                    )?;
                 }
             }
         }
@@ -596,14 +632,19 @@ fn autotune(_env_name: &str, num_trials: usize, steps_per_trial: u64) -> Result<
 
 #[cfg(feature = "torch")]
 fn bench(env_name: &str, num_envs: usize, duration_secs: u64) -> Result<()> {
-    tracing::info!("Benchmarking {} with {} envs for {}s...", env_name, num_envs, duration_secs);
-    
+    tracing::info!(
+        "Benchmarking {} with {} envs for {}s...",
+        env_name,
+        num_envs,
+        duration_secs
+    );
+
     // Estimate steps to run long enough
     // Assume 100k SPS max -> 100k * duration
-    let timesteps = 100_000 * duration_secs; 
-    
+    let timesteps = 100_000 * duration_secs;
+
     // We reuse train pipeline
     train(env_name, timesteps, 0.0003, num_envs, "mlp", None, None)?;
-    
+
     Ok(())
 }

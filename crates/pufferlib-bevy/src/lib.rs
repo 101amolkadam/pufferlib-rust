@@ -77,11 +77,19 @@ pub struct PufferBevyEnv {
 unsafe impl Send for PufferBevyEnv {}
 
 impl PufferBevyEnv {
-    pub fn new(mut app: App, obs_space: pufferlib::spaces::DynSpace, act_space: pufferlib::spaces::DynSpace) -> Self {
+    pub fn new(
+        mut app: App,
+        obs_space: pufferlib::spaces::DynSpace,
+        act_space: pufferlib::spaces::DynSpace,
+    ) -> Self {
         if !app.is_plugin_added::<PufferRLPlugin>() {
             app.add_plugins(PufferRLPlugin);
         }
-        Self { app, obs_space, act_space }
+        Self {
+            app,
+            obs_space,
+            act_space,
+        }
     }
 }
 
@@ -105,9 +113,9 @@ impl PufferEnv for PufferBevyEnv {
         // 1. Inject actions
         {
             let mut action_events = self.app.world_mut().resource_mut::<Events<AgentAction>>();
-            action_events.send(AgentAction { 
-                agent_id: 0, 
-                data: action.as_slice().unwrap().to_vec() 
+            action_events.send(AgentAction {
+                agent_id: 0,
+                data: action.as_slice().unwrap().to_vec(),
             });
         }
 
@@ -117,8 +125,18 @@ impl PufferEnv for PufferBevyEnv {
         // 3. Extract results
         let observation = self.collect_agent_obs(0);
         let world = self.app.world();
-        let reward = world.resource::<Reward>().map.get(&0).cloned().unwrap_or(0.0);
-        let done = world.resource::<Done>().map.get(&0).cloned().unwrap_or(false);
+        let reward = world
+            .resource::<Reward>()
+            .map
+            .get(&0)
+            .cloned()
+            .unwrap_or(0.0);
+        let done = world
+            .resource::<Done>()
+            .map
+            .get(&0)
+            .cloned()
+            .unwrap_or(false);
 
         pufferlib::env::StepResult {
             observation,
@@ -132,7 +150,12 @@ impl PufferEnv for PufferBevyEnv {
 
 impl PufferBevyEnv {
     fn collect_agent_obs(&self, agent_id: u32) -> ndarray::ArrayD<f32> {
-        let obs_data = self.app.world().resource::<AgentObservations>().map.get(&agent_id);
+        let obs_data = self
+            .app
+            .world()
+            .resource::<AgentObservations>()
+            .map
+            .get(&agent_id);
         if let Some(data) = obs_data {
             ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&[data.len()]), data.clone()).unwrap()
         } else {

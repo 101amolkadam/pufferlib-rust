@@ -8,13 +8,13 @@ use ndarray::ArrayD;
 pub trait GymEnv: Send {
     /// Advance the environment by one step
     fn step(&mut self, action: &ArrayD<f32>) -> (ArrayD<f32>, f32, bool, bool, String);
-    
+
     /// Reset the environment to initial state
     fn reset(&mut self, seed: Option<u64>) -> (ArrayD<f32>, String);
-    
+
     /// Get the observation space
     fn observation_space(&self) -> DynSpace;
-    
+
     /// Get the action space
     fn action_space(&self) -> DynSpace;
 }

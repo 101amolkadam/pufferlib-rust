@@ -7,7 +7,9 @@ fn test_cli_help() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("PufferLib - High-performance RL in Rust"));
+        .stdout(predicate::str::contains(
+            "PufferLib - High-performance RL in Rust",
+        ));
 }
 
 #[test]
@@ -37,7 +39,7 @@ fn test_cli_eval() {
 fn test_cli_train_dry_run() {
     // Requires torch feature. If not enabled, this test might be skipped or fail gracefully if we cfg check it.
     // However, binary compilation usually enables default features.
-    
+
     // We run a very short training session to verify the command works.
     let mut cmd = Command::cargo_bin("puffer").unwrap();
     cmd.arg("train")

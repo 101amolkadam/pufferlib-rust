@@ -343,7 +343,9 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             self.buffer.add(
                 &obs_tensor.detach(),
-                &action.detach().reshape([self.num_envs as i64, self.action_size]),
+                &action
+                    .detach()
+                    .reshape([self.num_envs as i64, self.action_size]),
                 &log_prob.detach(),
                 &rewards,
                 &dones_tensor,
@@ -575,7 +577,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         let base_name = format!("checkpoint_{:06}", self.epoch);
         let pt_path = format!("{}/{}.pt", self.config.data_dir, base_name);
         let meta_path = format!("{}/{}.json", self.config.data_dir, base_name);
-        
+
         tracing::info!(path = %pt_path, "Saving checkpoint");
 
         if let Err(e) = self.policy.var_store().save(&pt_path) {
@@ -596,7 +598,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         } else {
             tracing::error!("Failed to create metadata file");
         }
-        
+
         tracing::info!(epoch = self.epoch, elapsed = ?start_time.elapsed(), "Checkpoint saved");
     }
 
@@ -623,7 +625,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
     /// Load a checkpoint
     pub fn load_checkpoint(&mut self, path: &str) -> anyhow::Result<()> {
         tracing::info!(path, "Loading checkpoint");
-        
+
         // Load weights
         if let Err(e) = self.policy.var_store_mut().load(path) {
             tracing::error!("Failed to load weights: {}", e);
@@ -635,11 +637,11 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         if std::path::Path::new(&meta_path).exists() {
             let file = std::fs::File::open(&meta_path)?;
             let metadata: CheckpointMetadata = serde_json::from_reader(file)?;
-            
+
             self.epoch = metadata.epoch;
             self.global_step = metadata.global_step;
             self.mean_reward = metadata.mean_reward;
-            
+
             tracing::info!(
                 epoch = self.epoch,
                 step = self.global_step,
@@ -647,7 +649,10 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 "Metadata restored"
             );
         } else {
-            tracing::warn!("No metadata file found at {}, starting from current epoch", meta_path);
+            tracing::warn!(
+                "No metadata file found at {}, starting from current epoch",
+                meta_path
+            );
         }
 
         Ok(())
@@ -671,8 +676,8 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vector::Parallel;
     use crate::env::PufferEnv;
+    use crate::vector::Parallel;
     use ndarray::ArrayD;
 
     struct MockEnv {
@@ -690,10 +695,17 @@ mod tests {
     }
 
     impl PufferEnv for MockEnv {
-        fn observation_space(&self) -> crate::spaces::DynSpace { self.obs_space.clone() }
-        fn action_space(&self) -> crate::spaces::DynSpace { self.act_space.clone() }
+        fn observation_space(&self) -> crate::spaces::DynSpace {
+            self.obs_space.clone()
+        }
+        fn action_space(&self) -> crate::spaces::DynSpace {
+            self.act_space.clone()
+        }
         fn reset(&mut self, _seed: Option<u64>) -> (ndarray::ArrayD<f32>, crate::env::EnvInfo) {
-            (ndarray::ArrayD::zeros(ndarray::IxDyn(&[1])), crate::env::EnvInfo::default())
+            (
+                ndarray::ArrayD::zeros(ndarray::IxDyn(&[1])),
+                crate::env::EnvInfo::default(),
+            )
         }
         fn step(&mut self, _action: &ndarray::ArrayD<f32>) -> crate::env::StepResult {
             crate::env::StepResult {
@@ -706,20 +718,36 @@ mod tests {
         }
     }
 
-    struct MockPolicy { vs: nn::VarStore }
+    struct MockPolicy {
+        vs: nn::VarStore,
+    }
     impl Policy for MockPolicy {
-        fn forward(&self, obs: &Tensor, _state: &Option<Vec<Tensor>>) -> (crate::policy::Distribution, Tensor, Option<Vec<Tensor>>) {
+        fn forward(
+            &self,
+            obs: &Tensor,
+            _state: &Option<Vec<Tensor>>,
+        ) -> (crate::policy::Distribution, Tensor, Option<Vec<Tensor>>) {
             let b = obs.size()[0];
             let dummy = self.vs.root().zeros("dummy", &[]);
             let logits = Tensor::zeros([b, 2], (Kind::Float, obs.device())) + &dummy;
             let values = Tensor::zeros([b], (Kind::Float, obs.device())) + &dummy;
-            (crate::policy::Distribution::Categorical { logits }, values, None)
+            (
+                crate::policy::Distribution::Categorical { logits },
+                values,
+                None,
+            )
         }
-        fn initial_state(&self, _batch_size: i64) -> Option<Vec<Tensor>> { None }
+        fn initial_state(&self, _batch_size: i64) -> Option<Vec<Tensor>> {
+            None
+        }
     }
     impl HasVarStore for MockPolicy {
-        fn var_store(&self) -> &nn::VarStore { &self.vs }
-        fn var_store_mut(&mut self) -> &mut nn::VarStore { &mut self.vs }
+        fn var_store(&self) -> &nn::VarStore {
+            &self.vs
+        }
+        fn var_store_mut(&mut self) -> &mut nn::VarStore {
+            &mut self.vs
+        }
     }
 
     #[test]
@@ -728,7 +756,9 @@ mod tests {
         let device = Device::Cpu;
         let backend = Parallel::new(|| MockEnv::new(), 2);
         let vecenv = crate::vector::VecEnv::from_backend(backend);
-        let policy = MockPolicy { vs: nn::VarStore::new(device) };
+        let policy = MockPolicy {
+            vs: nn::VarStore::new(device),
+        };
         let config = TrainerConfig::default().with_timesteps(100);
         let mut trainer = Trainer::new(vecenv, policy, config, device);
         // Note: This test may fail due to mock policy creating new params each forward
@@ -739,17 +769,19 @@ mod tests {
     #[test]
     #[cfg(feature = "torch")]
     fn test_trainer_loop_mlp() {
-        use crate::policy::{MlpPolicy, MlpConfig};
+        use crate::policy::{MlpConfig, MlpPolicy};
 
         let device = Device::Cpu;
         let backend = Parallel::new(|| MockEnv::new(), 2);
         let vecenv = crate::vector::VecEnv::from_backend(backend);
-        
+
         // MlpPolicy: obs_size=1, num_actions=2, is_continuous=false
         let policy = MlpPolicy::new(1, 2, false, MlpConfig::default(), device);
-        
+
         let config = TrainerConfig::default().with_timesteps(100);
         let mut trainer = Trainer::new(vecenv, policy, config, device);
-        trainer.train().expect("Training loop with MlpPolicy failed");
+        trainer
+            .train()
+            .expect("Training loop with MlpPolicy failed");
     }
 }

@@ -1,8 +1,8 @@
 //! WebAssembly bindings for PufferLib.
 
-use wasm_bindgen::prelude::*;
-use pufferlib::env::{PufferEnv, StepResult};
 use ndarray::ArrayD;
+use pufferlib::env::{PufferEnv, StepResult};
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct PufferWasmEnv {
