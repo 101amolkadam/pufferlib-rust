@@ -475,7 +475,6 @@ fn autotune(_env_name: &str, num_trials: usize, steps_per_trial: u64) -> Result<
     use pufferlib::policy::{MlpConfig, MlpPolicy};
     use pufferlib::vector::{Serial, VecEnv};
     use pufferlib_envs::Bandit;
-    use std::collections::HashMap;
 
     let mut space = SearchSpace::new();
     space.add("learning_rate", ParameterRange::LogUniform(1e-4, 1e-2));
