@@ -18,10 +18,11 @@ jobs:
 
       - name: Install LibTorch
         run: |
-          wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.10.0%2Bcpu.zip
-          unzip libtorch-cxx11-abi-shared-with-deps-2.10.0+cpu.zip
+          wget https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.10.0%2Bcu124.zip
+          unzip libtorch-cxx11-abi-shared-with-deps-2.10.0+cu124.zip
           echo "LIBTORCH=$GITHUB_WORKSPACE/libtorch" >> $GITHUB_ENV
           echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "TORCH_CUDA_VERSION=cu124" >> $GITHUB_ENV
 
       - name: Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
