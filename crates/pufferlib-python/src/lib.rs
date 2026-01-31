@@ -7,9 +7,6 @@ use pufferlib::env::{PufferEnv, StepResult};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-#[cfg(feature = "torch")]
-use pufferlib::mappo::MappoConfig;
-
 /// Python wrapper for a PufferLib environment
 #[pyclass]
 pub struct PufferPythonEnv {
