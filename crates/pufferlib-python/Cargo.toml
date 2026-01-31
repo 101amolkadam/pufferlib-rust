@@ -11,6 +11,10 @@ description = "Python bindings for PufferLib"
 name = "pufferlib_rust"
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["torch"]
+torch = ["pufferlib/torch"]
+
 [dependencies]
 pufferlib = { path = "../pufferlib" }
 pyo3 = { workspace = true }

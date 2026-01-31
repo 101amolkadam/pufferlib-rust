@@ -2,6 +2,8 @@
 
 use super::buffer::ExperienceBuffer;
 use super::config::TrainerConfig;
+use super::exploration::{ICM, RND};
+use super::optimizer::{GradScaler, PuffOptimizer, TorchOptimizer};
 use super::ppo::{kl_divergence, ppo_dual_clip_policy_loss, ppo_policy_loss, ppo_value_loss};
 use super::self_play::PolicyPool;
 use crate::policy::{DistributionSample, HasVarStore, Policy};
@@ -12,6 +14,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 #[cfg(feature = "torch")]
 use tch::{nn, nn::OptimizerConfig, Device, Kind, Tensor};
+#[cfg(feature = "torch")]
+use torch_sys;
 
 #[cfg(not(feature = "torch"))]
 mod torch_compat {
@@ -28,16 +32,30 @@ use torch_compat::*;
 #[cfg(not(feature = "torch"))]
 struct DummyTensor; // Placeholder for non-torch builds
 
+/// Metrics returned after a training update
+#[derive(Debug, Clone, Default)]
+pub struct TrainMetrics {
+    pub policy_loss: f64,
+    pub value_loss: f64,
+    pub entropy: f64,
+    pub kl: f64,
+    pub sps: f64,
+    pub reward: f64,
+    pub rollout_time: f64,
+    pub update_time: f64,
+    pub env_time: f64,
+}
+
 /// Main trainer for PPO algorithm
-pub struct Trainer<P: Policy + HasVarStore, V: VecEnvBackend> {
+pub struct Trainer<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer = TorchOptimizer> {
     /// Configuration
     config: TrainerConfig,
     /// Vector environment
     vecenv: V,
     /// Policy network
-    policy: P,
+    pub policy: P,
     /// Optimizer
-    optimizer: nn::Optimizer,
+    optimizer: O,
     /// Experience buffer
     buffer: ExperienceBuffer,
     /// Current global step
@@ -68,11 +86,28 @@ pub struct Trainer<P: Policy + HasVarStore, V: VecEnvBackend> {
     pub curriculum: Option<Box<dyn super::curriculum::Curriculum>>,
     /// Last loss value for progress bar
     pub last_loss: f64,
+    /// Training loggers
+    pub loggers: Vec<Box<dyn super::Logger>>,
+    /// Training callbacks
+    pub callbacks: Vec<Box<dyn super::TrainerCallback>>,
+    /// Optional Intrinsic Curiosity Module
+    pub icm: Option<ICM>,
+    /// Optional Random Network Distillation
+    pub rnd: Option<RND>,
+    #[cfg(feature = "torch")]
+    /// Gradient scaler for AMP
+    pub scaler: Option<GradScaler>,
+    last_rollout_time: f64,
+    last_update_time: f64,
+    last_env_time: f64,
 }
 
-impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
+impl<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer> Trainer<P, V, O> {
     /// Create a new trainer
-    pub fn new(vecenv: V, mut policy: P, config: TrainerConfig, _device: Device) -> Self {
+    pub fn new(vecenv: V, mut policy: P, config: TrainerConfig, _device: Device) -> Self
+    where
+        O: From<(nn::Optimizer, Vec<Tensor>)>,
+    {
         let obs_space = vecenv.observation_space();
         let action_space = vecenv.action_space();
 
@@ -85,9 +120,18 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
         };
         let num_envs = vecenv.num_envs();
 
-        let optimizer = nn::Adam::default()
+        let optimizer_inner = nn::Adam::default()
             .build(policy.var_store_mut(), config.learning_rate)
             .expect("Failed to create optimizer");
+
+        // Wrap as the generic optimizer O
+        let variables: Vec<Tensor> = policy
+            .var_store()
+            .variables()
+            .values()
+            .map(|t| t.shallow_clone())
+            .collect();
+        let optimizer = O::from((optimizer_inner, variables));
 
         // Note: Buffer initialization logic might need to adjust based on space types
         let buffer = ExperienceBuffer::new(
@@ -109,6 +153,12 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                     .progress_chars("#>-"),
             );
             Some(pb)
+        } else {
+            None
+        };
+
+        let scaler = if config.use_amp {
+            Some(GradScaler::new(config.amp_initial_scale))
         } else {
             None
         };
@@ -135,7 +185,40 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             current_kl_coef: kl_coef,
             curriculum: None,
             last_loss: 0.0,
+            loggers: Vec::new(),
+            callbacks: Vec::new(),
+            icm: None,
+            rnd: None,
+            #[cfg(feature = "torch")]
+            scaler,
+            last_rollout_time: 0.0,
+            last_update_time: 0.0,
+            last_env_time: 0.0,
         }
+    }
+
+    /// Add a logger to the trainer
+    pub fn with_logger(mut self, logger: Box<dyn super::Logger>) -> Self {
+        self.loggers.push(logger);
+        self
+    }
+
+    /// Set ICM for the trainer
+    pub fn with_icm(mut self, icm: ICM) -> Self {
+        self.icm = Some(icm);
+        self
+    }
+
+    /// Set RND for the trainer
+    pub fn with_rnd(mut self, rnd: RND) -> Self {
+        self.rnd = Some(rnd);
+        self
+    }
+
+    /// Add a callback to the trainer
+    pub fn with_callback(mut self, callback: Box<dyn super::TrainerCallback>) -> Self {
+        self.callbacks.push(callback);
+        self
     }
 
     /// Set a curriculum for the trainer
@@ -184,22 +267,29 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             }
 
             // PPO update
-            self.update();
+            let metrics = self.update();
+
+            // Logging
+            for logger in &mut self.loggers {
+                let _ = logger.log(self.global_step, &metrics);
+            }
+
+            // Callbacks
+            for callback in &mut self.callbacks {
+                callback.on_epoch_end(self.epoch, &metrics);
+            }
 
             self.epoch += 1;
 
             // Increment global step and update progress bar
             if let Some(ref pb) = self.progress {
-                pb.set_position(self.global_step);
-                let elapsed = self.start_time.elapsed().as_secs_f64();
-                let sps = self.global_step as f64 / elapsed;
+                pb.inc(self.config.batch_size as u64);
                 pb.set_message(format!(
-                    "Loss: {:.4} Reward: {:.2} SPS: {:.2}",
-                    self.last_loss, self.mean_reward, sps
+                    "Epoch: {}, SPS: {:.2}, Reward: {:.2}, Loss: {:.4}",
+                    self.epoch, metrics.sps, self.mean_reward, self.last_loss
                 ));
             }
 
-            // Logging
             if self.epoch.is_multiple_of(10) {
                 let elapsed = self.start_time.elapsed().as_secs_f64();
                 let sps = self.global_step as f64 / elapsed;
@@ -240,18 +330,26 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             pb.finish_with_message("Training complete");
         }
 
+        // Finalize loggers
+        for logger in &mut self.loggers {
+            let _ = logger.finalize();
+        }
+
         Ok(())
     }
 
     /// Collect a rollout of experience
-    fn collect_rollout(&mut self, initial_obs: &ObservationBatch) {
+    pub fn collect_rollout(&mut self, initial_obs: &ObservationBatch) {
+        let rollout_start = std::time::Instant::now();
+        let mut total_env_time = 0.0;
         self.buffer.reset();
 
         let mut obs = initial_obs.clone();
         let steps_per_env = self.config.batch_size / self.num_envs;
 
         for _ in 0..steps_per_env {
-            // Convert obs to tensor
+            // ... (rest of the loop same as before, but measure env step)
+            // I'll use a more surgical replace if possible, but let's try this
             let obs_tensor = match obs {
                 ObservationBatch::Cpu(ref a) => Tensor::from_slice(a.as_slice().unwrap())
                     .reshape([self.num_envs as i64, self.obs_size])
@@ -264,12 +362,9 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
             let (action, log_prob, value, next_state) =
                 if self.config.self_play_enabled && !self.pool.all_policies().is_empty() {
-                    // Partition environments/agents between learner and pool
                     let num_learner =
                         (self.num_envs as f64 * self.config.self_play_learner_ratio) as i64;
                     let num_pool = self.num_envs as i64 - num_learner;
-
-                    // Learner forward pass
                     let learner_obs = obs_tensor.narrow(0, 0, num_learner);
                     let learner_state = self
                         .state
@@ -286,25 +381,17 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                     };
                     let l_log_prob_sample = l_dist.log_prob(&l_action_sample);
                     let DistributionSample::Torch(l_log_prob) = l_log_prob_sample;
-
-                    // Pool forward pass (simple implementation: use one sampled policy for all pool agents)
                     let _pool_policy_record = self.pool.sample_policy().unwrap();
-
                     let p_action = Tensor::zeros(
                         [num_pool, self.action_size],
                         (Kind::Float, self.config.device),
                     );
                     let p_log_prob = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
                     let p_value = Tensor::zeros([num_pool], (Kind::Float, self.config.device));
-
-                    let combined_action = Tensor::cat(&[l_action, p_action], 0);
-                    let combined_log_prob = Tensor::cat(&[l_log_prob, p_log_prob], 0);
-                    let combined_value = Tensor::cat(&[l_value, p_value], 0);
-
                     (
-                        combined_action,
-                        combined_log_prob,
-                        combined_value,
+                        Tensor::cat(&[l_action, p_action], 0),
+                        Tensor::cat(&[l_log_prob, p_log_prob], 0),
+                        Tensor::cat(&[l_value, p_value], 0),
                         l_next_state,
                     )
                 } else {
@@ -323,7 +410,6 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                     (action, log_prob, value, next_state)
                 };
 
-            // Convert action to ndarray
             let action_vec: Vec<f32> =
                 Vec::try_from(action.to_device(Device::Cpu).flatten(0, -1)).unwrap();
             let action_array = ndarray::Array2::from_shape_vec(
@@ -332,13 +418,35 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             )
             .unwrap();
 
-            // Step environment
+            let env_start = std::time::Instant::now();
             let result = self.vecenv.step(&action_array);
+            total_env_time += env_start.elapsed().as_secs_f64();
 
-            // Store in buffer
-            let rewards = Tensor::from_slice(&result.rewards);
+            let mut rewards = Tensor::from_slice(&result.rewards);
+
+            // ICM Intrinsic Reward
+            if let Some(ref icm) = self.icm {
+                let next_obs_tensor = match result.observations {
+                    ObservationBatch::Cpu(ref a) => Tensor::from_slice(a.as_slice().unwrap())
+                        .reshape([self.num_envs as i64, self.obs_size])
+                        .to_device(self.config.device),
+                    #[cfg(feature = "torch")]
+                    ObservationBatch::Torch(ref t) => t.to_device(self.config.device),
+                    #[cfg(feature = "candle")]
+                    ObservationBatch::Candle(_) => panic!("Candle backend in torch trainer"),
+                };
+                let (i_reward, _, _) =
+                    icm.compute_intrinsic_reward(&obs_tensor, &next_obs_tensor, &action);
+                rewards = rewards + i_reward.to_device(rewards.device()) * self.config.icm_beta;
+            }
+
+            // RND Intrinsic Reward
+            if let Some(ref rnd) = self.rnd {
+                let (i_reward, _) = rnd.compute_intrinsic_reward(&obs_tensor);
+                rewards = rewards + i_reward.to_device(rewards.device()) * self.config.rnd_beta;
+            }
+
             self.mean_reward = result.rewards.iter().sum::<f32>() as f64 / self.num_envs as f64;
-
             let dones_bool = result.dones();
             let dones: Vec<f32> = dones_bool
                 .iter()
@@ -347,7 +455,7 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             let dones_tensor = Tensor::from_slice(&dones);
 
             self.buffer.add(
-                &obs_tensor.detach(),
+                &obs_tensor,
                 &action
                     .detach()
                     .reshape([self.num_envs as i64, self.action_size]),
@@ -355,11 +463,11 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 &rewards,
                 &dones_tensor,
                 &value.detach(),
+                &Tensor::zeros_like(&rewards),
+                &Tensor::zeros_like(&value.detach()),
             );
 
-            // Update obs and state for next step
             obs = result.observations;
-
             if let Some(states) = next_state {
                 let dones_dev = Tensor::from_slice(
                     &dones
@@ -369,7 +477,6 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                 )
                 .to_device(self.config.device)
                 .reshape([1, self.num_envs as i64, 1]);
-
                 self.state = Some(
                     states
                         .into_iter()
@@ -379,33 +486,59 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             } else {
                 self.state = None;
             }
-
             self.global_step += self.num_envs as u64;
         }
+        self.last_rollout_time = rollout_start.elapsed().as_secs_f64();
+        self.last_env_time = total_env_time;
     }
 
     /// Perform PPO update on collected experience
-    fn update(&mut self) {
+    pub fn update(&mut self) -> TrainMetrics {
+        let update_start = std::time::Instant::now();
         let minibatch_size = self.config.minibatch_size();
+        let mut total_policy_loss = 0.0;
+        let mut total_value_loss = 0.0;
+        let mut total_entropy = 0.0;
+        let mut total_kl = 0.0;
+        let mut num_updates = 0;
 
         for epoch in 0..self.config.update_epochs {
             let mut epoch_kls = Vec::new();
+            let mut accum_counter = 0;
+            let accum_steps = self.config.gradient_accumulation_steps.max(1);
 
-            for _ in 0..self.config.num_minibatches {
+            self.optimizer.zero_grad();
+
+            for mb_idx in 0..self.config.num_minibatches {
                 let indices = self.buffer.get_minibatch_indices(minibatch_size);
                 let batch = self.buffer.get_minibatch(&indices);
 
-                // Normalize advantages
-                let advantages = &batch.advantages;
-                let adv_mean = advantages.mean(Kind::Float);
-                let adv_std = advantages.std(false);
-                let normalized_advantages = (advantages - &adv_mean) / (&adv_std + 1e-8);
+                let use_amp = self.config.use_amp;
 
-                // Forward pass
-                let (dist, values, _) = self.policy.forward(&batch.observations, &None);
+                // Destructure batch to get owned tensors and avoid ownership issues
+                let super::buffer::MiniBatch {
+                    observations: b_obs,
+                    actions: b_act,
+                    log_probs: b_lp,
+                    values: b_val,
+                    returns: b_ret,
+                    advantages: b_adv,
+                    ..
+                } = batch;
+
+                // Compute normalized advantages
+                let norm_adv = (&b_adv - &b_adv.mean(Kind::Float)) / (&b_adv.std(false) + 1e-8);
 
                 #[cfg(feature = "torch")]
-                let action_sample = DistributionSample::Torch(batch.actions.shallow_clone());
+                unsafe {
+                    torch_sys::at_autocast_set_enabled(if use_amp { 1 } else { 0 });
+                }
+
+                // Forward pass
+                let (dist, values, _) = self.policy.forward(&b_obs, &None);
+
+                #[cfg(feature = "torch")]
+                let action_sample = DistributionSample::Torch(b_act.shallow_clone());
                 #[cfg(not(feature = "torch"))]
                 let action_sample = DistributionSample::Candle(
                     candle_core::Tensor::zeros(
@@ -428,41 +561,25 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
                 // Compute KL divergence for stability tracking
                 #[cfg(feature = "torch")]
-                let kl = kl_divergence(&new_log_probs, &batch.log_probs);
-                #[cfg(feature = "torch")]
-                epoch_kls.push(kl.double_value(&[]));
+                let kl = kl_divergence(&new_log_probs, &b_lp);
 
                 // Compute losses
                 #[cfg(feature = "torch")]
                 let policy_loss = if self.config.dual_clip_coef > 0.0 {
                     ppo_dual_clip_policy_loss(
-                        &normalized_advantages,
+                        &norm_adv,
                         &new_log_probs,
-                        &batch.log_probs,
+                        &b_lp,
                         self.config.clip_coef,
                         self.config.dual_clip_coef,
                     )
                 } else {
-                    ppo_policy_loss(
-                        &normalized_advantages,
-                        &new_log_probs,
-                        &batch.log_probs,
-                        self.config.clip_coef,
-                    )
+                    ppo_policy_loss(&norm_adv, &new_log_probs, &b_lp, self.config.clip_coef)
                 };
 
                 #[cfg(feature = "torch")]
-                let value_loss = ppo_value_loss(
-                    &values,
-                    &batch.values,
-                    &batch.returns,
-                    self.config.vf_clip_coef,
-                );
+                let value_loss = ppo_value_loss(&values, &b_val, &b_ret, self.config.clip_coef);
 
-                #[cfg(feature = "torch")]
-                let entropy_loss = -entropy.mean(Kind::Float);
-
-                // Phase 2: SAC-style entropy regularization (if enabled via ent_coef)
                 #[cfg(feature = "torch")]
                 let sac_reg = if self.config.ent_coef > 0.0 {
                     super::ppo::sac_loss(&values, &new_log_probs, self.config.ent_coef)
@@ -472,49 +589,68 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
 
                 #[cfg(feature = "torch")]
                 let kl_penalty = if self.config.kl_adaptive {
-                    self.current_kl_coef * kl
+                    self.current_kl_coef * &kl
                 } else {
                     Tensor::from(0.0).to_device(self.config.device)
                 };
 
                 #[cfg(feature = "torch")]
-                let loss = &policy_loss
-                    + self.config.vf_coef * &value_loss
-                    + self.config.ent_coef * &entropy_loss
+                let loss = &policy_loss + self.config.vf_coef * &value_loss
+                    - self.config.ent_coef * entropy.mean(Kind::Float)
                     + &sac_reg
                     + &kl_penalty;
+
+                // Divide loss for accumulation
+                #[cfg(feature = "torch")]
+                let loss = loss / (accum_steps as f64);
+
+                // Entropy mean for metrics
+                #[cfg(feature = "torch")]
+                let entropy_mean = entropy.mean(Kind::Float);
+
+                #[cfg(feature = "torch")]
+                unsafe {
+                    torch_sys::at_autocast_set_enabled(0);
+                }
 
                 // Backward pass
                 #[cfg(feature = "torch")]
                 {
-                    self.last_loss = loss.double_value(&[]);
-                    self.optimizer.zero_grad();
-                    loss.backward();
+                    self.last_loss = loss.double_value(&[]) * (accum_steps as f64);
 
-                    // Gradient clipping
-                    let mut global_norm = 0.0f64;
-                    for var in self.policy.var_store().variables().values() {
-                        let grad = var.grad();
-                        if grad.defined() {
-                            global_norm += grad
-                                .pow_tensor_scalar(2.0)
-                                .sum(Kind::Float)
-                                .double_value(&[]);
-                        }
+                    if let Some(ref mut scaler) = self.scaler {
+                        let scaled_loss = scaler.scale(&loss);
+                        scaled_loss.backward();
+                    } else {
+                        loss.backward();
                     }
-                    global_norm = global_norm.sqrt();
 
-                    if global_norm > self.config.max_grad_norm {
-                        let clip_coef = self.config.max_grad_norm / (global_norm + 1e-6);
-                        for var in self.policy.var_store().variables().values() {
-                            let mut grad = var.grad();
-                            if grad.defined() {
-                                let _ = grad.f_mul_scalar_(clip_coef);
+                    accum_counter += 1;
+                    if accum_counter >= accum_steps || mb_idx == self.config.num_minibatches - 1 {
+                        if let Some(ref mut scaler) = self.scaler {
+                            // scaler.unscale unscales grads and checks for overflow
+                            let vars = self.optimizer.variables();
+                            if scaler.unscale(vars, Some(self.config.max_grad_norm)) {
+                                self.optimizer.step();
+                            } else {
+                                tracing::warn!("GradScaler step skipped due to overflow");
                             }
+                        } else {
+                            // Abstracted gradient clipping
+                            self.optimizer.clip_grad_norm(self.config.max_grad_norm);
+                            self.optimizer.step();
                         }
-                    }
 
-                    self.optimizer.step();
+                        self.optimizer.zero_grad();
+                        accum_counter = 0;
+
+                        // Update metrics only on step
+                        total_policy_loss += policy_loss.double_value(&[]);
+                        total_value_loss += value_loss.double_value(&[]);
+                        total_entropy += entropy_mean.double_value(&[]);
+                        num_updates += 1;
+                        epoch_kls.push(kl.double_value(&[]));
+                    }
                 }
             }
 
@@ -539,9 +675,38 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
                         target = self.config.target_kl,
                         "Early stopping due to high KL divergence"
                     );
+                    total_kl = mean_kl;
                     break;
                 }
+                total_kl = mean_kl;
             }
+        }
+
+        let elapsed = self.start_time.elapsed().as_secs_f64();
+        let sps = self.global_step as f64 / elapsed;
+
+        TrainMetrics {
+            policy_loss: if num_updates > 0 {
+                total_policy_loss / num_updates as f64
+            } else {
+                0.0
+            },
+            value_loss: if num_updates > 0 {
+                total_value_loss / num_updates as f64
+            } else {
+                0.0
+            },
+            entropy: if num_updates > 0 {
+                total_entropy / num_updates as f64
+            } else {
+                0.0
+            },
+            kl: total_kl,
+            sps,
+            reward: self.mean_reward,
+            rollout_time: self.last_rollout_time,
+            update_time: update_start.elapsed().as_secs_f64(),
+            env_time: self.last_env_time,
         }
     }
 
@@ -555,7 +720,7 @@ struct CheckpointMetadata {
     mean_reward: f64,
 }
 
-impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
+impl<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer> Trainer<P, V, O> {
     /// Save a checkpoint
     pub fn save_checkpoint(&self) {
         let start_time = Instant::now();
@@ -662,7 +827,164 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend> Trainer<P, V> {
             self.pool.add_policy(snapshot_id, path, 1000.0);
         }
     }
+
+    #[cfg(feature = "hf-hub")]
+    pub fn push_to_hub(&self, repo_id: &str, _commit_message: &str) -> anyhow::Result<()> {
+        use hf_hub::{api::sync::Api, Repo, RepoType};
+        let api = Api::new()?;
+        let repo = api.repo(Repo::new(repo_id.to_string(), RepoType::Model));
+
+        // Save current checkpoint to temp file
+        let temp_dir = std::env::temp_dir();
+        let ckpt_path = temp_dir.join(format!("puffer_model_{}.pt", self.global_step));
+
+        self.policy
+            .var_store()
+            .save(&ckpt_path)
+            .map_err(|e| anyhow::anyhow!("Failed to save weights: {}", e))?;
+
+        // Upload
+        repo.upload_file("model.pt".to_string(), ckpt_path.clone())?;
+
+        // Also upload metadata
+        let metadata = CheckpointMetadata {
+            epoch: self.epoch,
+            global_step: self.global_step,
+            mean_reward: self.mean_reward,
+        };
+        let meta_path = temp_dir.join("metadata.json");
+        let file = std::fs::File::create(&meta_path)?;
+        serde_json::to_writer_pretty(file, &metadata)?;
+        repo.upload_file("metadata.json".to_string(), meta_path.clone())?;
+
+        // Cleanup
+        let _ = std::fs::remove_file(ckpt_path);
+        let _ = std::fs::remove_file(meta_path);
+
+        tracing::info!("Pushed model to HF Hub: {}", repo_id);
+        Ok(())
+    }
 }
+
+/// Serializable state for Trainer checkpointing
+#[derive(serde::Serialize, serde::Deserialize)]
+struct TrainerCheckpointState {
+    epoch: u64,
+    global_step: u64,
+    mean_reward: f64,
+    current_kl_coef: f64,
+    last_loss: f64,
+}
+
+/// Implement Checkpointable trait for Trainer
+///
+/// This allows the trainer to be used with CheckpointManager for
+/// automatic checkpoint rotation and best checkpoint tracking.
+impl<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer> crate::checkpoint::Checkpointable
+    for Trainer<P, V, O>
+{
+    fn save_state(&self) -> crate::Result<Vec<u8>> {
+        use std::io::Write;
+
+        // Serialize trainer state
+        let state = TrainerCheckpointState {
+            epoch: self.epoch,
+            global_step: self.global_step,
+            mean_reward: self.mean_reward,
+            current_kl_coef: self.current_kl_coef,
+            last_loss: self.last_loss,
+        };
+
+        let state_json = serde_json::to_vec(&state).map_err(|e| {
+            crate::PufferError::TrainingError(format!("Failed to serialize state: {}", e))
+        })?;
+
+        // Save policy weights to temp file, then read bytes
+        let temp_dir = std::env::temp_dir();
+        let weights_path = temp_dir.join(format!("puffer_weights_{}.pt", std::process::id()));
+
+        self.policy.var_store().save(&weights_path).map_err(|e| {
+            crate::PufferError::TrainingError(format!("Failed to save weights: {}", e))
+        })?;
+
+        let weights_bytes = std::fs::read(&weights_path)?;
+
+        // Clean up temp file
+        let _ = std::fs::remove_file(&weights_path);
+
+        // Combine: [state_length (8 bytes)] [state_json] [weights]
+        let mut output = Vec::new();
+        output.write_all(&(state_json.len() as u64).to_le_bytes())?;
+        output.write_all(&state_json)?;
+        output.write_all(&weights_bytes)?;
+
+        Ok(output)
+    }
+
+    fn load_state(&mut self, data: &[u8]) -> crate::Result<()> {
+        use std::io::Write;
+
+        if data.len() < 8 {
+            return Err(crate::PufferError::TrainingError(
+                "Invalid checkpoint data".into(),
+            ));
+        }
+
+        // Parse state length
+        let state_len = u64::from_le_bytes(data[0..8].try_into().unwrap()) as usize;
+
+        if data.len() < 8 + state_len {
+            return Err(crate::PufferError::TrainingError(
+                "Corrupt checkpoint: truncated state".into(),
+            ));
+        }
+
+        // Deserialize state
+        let state: TrainerCheckpointState = serde_json::from_slice(&data[8..8 + state_len])
+            .map_err(|e| {
+                crate::PufferError::TrainingError(format!("Failed to deserialize state: {}", e))
+            })?;
+
+        // Extract weights
+        let weights_bytes = &data[8 + state_len..];
+
+        // Save weights to temp file
+        let temp_dir = std::env::temp_dir();
+        let weights_path = temp_dir.join(format!("puffer_weights_load_{}.pt", std::process::id()));
+
+        let mut file = std::fs::File::create(&weights_path)?;
+        file.write_all(weights_bytes)?;
+        drop(file);
+
+        // Load weights
+        self.policy
+            .var_store_mut()
+            .load(&weights_path)
+            .map_err(|e| {
+                crate::PufferError::TrainingError(format!("Failed to load weights: {}", e))
+            })?;
+
+        // Clean up temp file
+        let _ = std::fs::remove_file(&weights_path);
+
+        // Restore state
+        self.epoch = state.epoch;
+        self.global_step = state.global_step;
+        self.mean_reward = state.mean_reward;
+        self.current_kl_coef = state.current_kl_coef;
+        self.last_loss = state.last_loss;
+
+        tracing::info!(
+            epoch = self.epoch,
+            step = self.global_step,
+            reward = self.mean_reward,
+            "Trainer state restored from checkpoint"
+        );
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -704,6 +1026,7 @@ mod tests {
                 terminated: false,
                 truncated: false,
                 info: crate::env::EnvInfo::default(),
+                cost: 0.0,
             }
         }
     }
@@ -750,7 +1073,8 @@ mod tests {
             vs: nn::VarStore::new(device),
         };
         let config = TrainerConfig::default().with_timesteps(100);
-        let mut trainer = Trainer::new(vecenv, policy, config, device);
+        let mut trainer =
+            Trainer::<MockPolicy, _, TorchOptimizer>::new(vecenv, policy, config, device);
         // Note: This test may fail due to mock policy creating new params each forward
         // Use test_trainer_loop_mlp for proper verification
         let _ = trainer.train();
@@ -769,7 +1093,8 @@ mod tests {
         let policy = MlpPolicy::new(1, 2, false, MlpConfig::default(), device);
 
         let config = TrainerConfig::default().with_timesteps(100);
-        let mut trainer = Trainer::new(vecenv, policy, config, device);
+        let mut trainer =
+            Trainer::<MlpPolicy, _, TorchOptimizer>::new(vecenv, policy, config, device);
         trainer
             .train()
             .expect("Training loop with MlpPolicy failed");

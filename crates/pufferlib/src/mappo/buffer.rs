@@ -1,0 +1,56 @@
+//! Per-agent experience buffer.
+
+use tch::Tensor;
+
+/// Buffer for a single agent's experience
+pub struct AgentBuffer {
+    pub observations: Vec<Tensor>,
+    pub actions: Vec<Tensor>,
+    pub log_probs: Vec<Tensor>,
+    pub rewards: Vec<f32>,
+    pub dones: Vec<bool>,
+    pub values: Vec<Tensor>,
+}
+
+impl AgentBuffer {
+    pub fn new() -> Self {
+        Self {
+            observations: Vec::new(),
+            actions: Vec::new(),
+            log_probs: Vec::new(),
+            rewards: Vec::new(),
+            dones: Vec::new(),
+            values: Vec::new(),
+        }
+    }
+
+    pub fn add(
+        &mut self,
+        obs: Tensor,
+        action: Tensor,
+        log_prob: Tensor,
+        reward: f32,
+        done: bool,
+        value: Tensor,
+    ) {
+        self.observations.push(obs);
+        self.actions.push(action);
+        self.log_probs.push(log_prob);
+        self.rewards.push(reward);
+        self.dones.push(done);
+        self.values.push(value);
+    }
+
+    pub fn clear(&mut self) {
+        self.observations.clear();
+        self.actions.clear();
+        self.log_probs.clear();
+        self.rewards.clear();
+        self.dones.clear();
+        self.values.clear();
+    }
+
+    pub fn len(&self) -> usize {
+        self.observations.len()
+    }
+}

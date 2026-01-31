@@ -23,27 +23,28 @@ This document outlines the strategic direction and planned features for the Puff
     - [x] Adaptive KL penalty tracking.
     - [x] Value function clipping.
 - [x] **Protein (Auto-Tune)**: Native Rust implementation of PufferLib's Bayesian HPO system.
+- [x] **Safe RL**: Constrained PPO with Lagrangian multiplier method.
 - [x] **Self-Play & ELO**: 
     - [x] Historical self-play wrappers.
     - [x] Multi-agent rating systems (ELO/Glicko).
     - [x] Curriculum scaling based on agent skill.
 
-## � Phase 3: Hardware & Performance
+## 🟡 Phase 3: Hardware & Performance
 *Goal: Push the boundaries of RL throughput.*
 
-- [x] **Candle Backend**: Support for HuggingFace `candle` as an alternative to LibTorch for easier deployment.
-- [x] **Zero-Copy Batching**: Implement cross-process shared memory backends for Linux/Windows (via `memfd`/Named Mappings).
-- [x] **SIMD Optimization**: Accelerated space-flattening operations (Zero-allocation `flatten_to`).
-- [x] **GPU-Native Envs**: Integration with CUDA-accelerated environments via `ObservationBatch`.
+- [/] **Candle Backend**: Initial MLP support implemented. Full Trainer/Buffer support pending.
+- [x] **Zero-Copy Batching**: Windows Shared Memory backend implemented.
+- [ ] **SIMD Optimization**: Accelerated space-flattening operations.
+- [ ] **GPU-Native Envs**: Future integration path via `ObservationBatch`.
 
-## 🔴 Phase 4: Integrations & Ecosystem
+## 🟡 Phase 4: Integrations & Ecosystem
 *Goal: Making PufferLib the standard for Rust RL.*
 
-- [x] **Bevy Integration**: Official plugin for 3D physics-based RL in the Bevy engine.
-- [x] **Gymnasium-Rust**: Direct bridge to traditional Rust-gym environments.
-- [x] **PyO3 Bindings**: Expose Rust environments to Python RL frameworks with zero overhead.
-- [x] **WebAssembly**: Run inference and simple training directly in the browser (e.g., via `wasm-bindgen`).
-- [x] **Distributed Scales**: Multi-node vectorization using `tonic` (gRPC) or `quinn` (QUIC).
+- [x] **Bevy Integration**: Official plugin for 3D physics-based RL.
+- [x] **Gymnasium-Rust**: Initial bridge implementation.
+- [x] **PyO3 Bindings**: Python integration for PufferEnv.
+- [ ] **WebAssembly**: Placeholder implemented. Full browser training pending.
+- [x] **Distributed Scale**: gRPC (tonic) client/server architecture.
 
 ---
 

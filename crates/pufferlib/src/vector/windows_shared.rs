@@ -1,4 +1,6 @@
 use super::SharedBuffer;
+#[cfg(feature = "std")]
+/// Windows-specific shared memory backend for zero-copy observation piping.
 use std::ptr::NonNull;
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::System::Memory::{

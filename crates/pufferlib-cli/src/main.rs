@@ -351,7 +351,10 @@ where
     B: pufferlib::vector::VecEnvBackend + 'static,
     P: pufferlib::policy::Policy + pufferlib::policy::HasVarStore + 'static,
 {
-    let mut trainer = pufferlib::training::Trainer::new(envs, policy, config, device);
+    let mut trainer =
+        pufferlib::training::Trainer::<P, B, pufferlib::training::optimizer::TorchOptimizer>::new(
+            envs, policy, config, device,
+        );
 
     // Apply curriculum if requested
     if let Some(c_type) = curriculum {

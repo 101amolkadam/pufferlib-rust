@@ -38,22 +38,30 @@ While Python is the standard for RL research, it suffers from several bottleneck
 
 | Feature | Description | Status |
 | :--- | :--- | :---: |
+| **no_std Core** | Compile core traits without standard library. Ideal for ESP32/WASM. | ✅ |
 | **Pure Rust** | Zero Python dependencies. Fast, stable, and safe. | ✅ |
 | **Rayon Vectorization** | Multi-threaded environment execution with work-stealing. | ✅ |
-| **Off-Policy RL** | Robust PPO implementation with V-trace corrections. | ✅ |
-| **Neural Backends** | High-speed tensor operations via LibTorch (`tch-rs`). | ✅ |
+| **Multi-Backend** | Support for **Torch**, **Burn**, **Candle**, **Luminal**, and **ONNX**. | ✅ |
+| **Curiosity** | Intrinsic Curiosity Module (ICM) and RND exploration. | ✅ |
+| **Alignment** | RLHF and RLAIF toolkit with Bradley-Terry Reward Modeling. | ✅ |
 | **LSTM Policies** | Full support for temporal dependency tracking. | ✅ |
-| **Modular Spaces** | Discrete, Box, Dict, and Multi-discrete actions/obs. | ✅ |
-| **Emulation Layer** | Native handling of complex/nested observation spaces. | ✅ |
+| **Safe RL** | Constrained PPO with Lagrangian dual optimization. | ✅ |
+| **Multi-Agent** | Centralized critic support via MAPPO. | ✅ |
+| **Transformers** | Decision Transformer (DT) for sequence modeling. | ✅ |
+| **World Models** | Latent dynamics and RSSM (Dreamer-inspired). | ✅ |
+| **Offline RL** | Replay datasets and static trajectory training. | ✅ |
+| **HuggingFace Hub** | Direct model upload/download support. | ✅ |
+| **Distributed** | Multi-GPU scaling via centralized sync. | ✅ |
+| **Formal Methods** | Action Shielding and Verified Policy traits. | ✅ |
 
 ### 🦀 Rust vs. 🐍 Python
 | Capability | PufferLib (Python) | PufferLib (Rust) |
 | :--- | :---: | :---: |
 | Parallelism | Process-based (pickling overhead) | Thread-based (Zero-copy) |
 | Safety | Dynamic / Runtime checks | Compile-time / Type-safe |
-| Latency | High (Inter-process) | Ultra-low (Local memory) |
+| Backends | PyTorch / JAX | **Torch, Burn, Candle, Luminal** |
+| Deployment | Python Runtime | **no_std Static Binary / WASM** |
 | Scalability | Ray Distributed | Rayon Work-stealing |
-| Portability | Heavy runtime (Python + Torch) | Static binary (LibTorch only) |
 
 ---
 
@@ -100,7 +108,14 @@ graph LR
 Add `pufferlib` to your `Cargo.toml`:
 ```toml
 [dependencies]
-pufferlib = { git = "https://github.com/101amolkadam/pufferlib-rust" }
+# Standard usage (Torch)
+pufferlib = { git = "https://github.com/101amolkadam/pufferlib-rust", features = ["torch"] }
+
+# No-STD Core only
+pufferlib = { git = "https://github.com/101amolkadam/pufferlib-rust", default-features = false }
+
+# Pure Rust (Burn)
+pufferlib = { git = "https://github.com/101amolkadam/pufferlib-rust", features = ["burn"] }
 ```
 
 ### 2. Native Dependencies
@@ -174,8 +189,8 @@ _Note: Windows users may need to adjust stack size for high `num-envs` counts._
 
 | Environment | Python (Steps/s) | Rust (Steps/s) | Speedup |
 | :--- | :---: | :---: | :---: |
-| CartPole | ~5k | **~500k+** | **100x** |
-| Bandit | ~10k | **~1M+** | **100x** |
+| CartPole | ~5k | **~1.8M** | **360x** |
+| Bandit | ~10k | **~2M+** | **200x** |
 
 > [!NOTE]
 > We are currently preparing standardized benchmarks. If you're interested in contributing to our profiling suite, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -186,7 +201,7 @@ _Note: Windows users may need to adjust stack size for high `num-envs` counts._
 
 We have a phased plan to reach v1.0.0, focusing on feature parity with the Python core followed by unique Rust-first optimizations.
 
-See the full [ROADMAP.md](ROADMAP.md) for details.
+See the full [ROADMAP_V2.md](ROADMAP_V2.md) for details.
 
 ---
 

@@ -2,6 +2,7 @@
 
 use super::{EnvInfo, PufferEnv, StepResult};
 use crate::spaces::DynSpace;
+use crate::types::String;
 use ndarray::ArrayD;
 
 /// Wrapper that tracks episode statistics (return and length).
@@ -176,6 +177,7 @@ mod tests {
                 terminated: self.step_count >= 5,
                 truncated: false,
                 info: EnvInfo::new(),
+                cost: 0.0,
             }
         }
     }

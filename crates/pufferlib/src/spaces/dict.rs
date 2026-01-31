@@ -1,11 +1,12 @@
-//! Dict (dictionary) observation/action space
+//! Dictionary observation/action space.
 
 use super::{DynSpace, Space};
+use crate::types::{vec, HashMap, String, ToString, Vec};
 use rand::Rng;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-/// Dictionary space containing named sub-spaces
-#[derive(Clone, Debug)]
+/// Dictionary space mapping names to subspaces
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Dict {
     /// Named sub-spaces
     pub spaces: HashMap<String, DynSpace>,

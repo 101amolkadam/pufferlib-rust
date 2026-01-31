@@ -142,6 +142,7 @@ impl PufferEnv for Memory {
             terminated: terminal,
             truncated: false,
             info,
+            cost: 0.0,
         }
     }
 

@@ -58,6 +58,8 @@ candle-transformers = "0.8"
 # Python bindings
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"] }
 numpy = "0.22"
+tch = "0.23"
+
 
 # Utilities
 num-traits = "0.2"

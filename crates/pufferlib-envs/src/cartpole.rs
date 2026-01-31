@@ -166,6 +166,7 @@ impl PufferEnv for CartPole {
             terminated,
             truncated,
             info,
+            cost: 0.0,
         }
     }
 

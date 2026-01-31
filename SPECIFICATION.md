@@ -28,8 +28,21 @@ Rust's parallelism model allows for tighter memory integration than Python's mul
 - **Parallel (Shared-Memory)**: Future implementation for cross-crate communication using zero-copy memory buffers.
 
 ### 2.2 Buffer Management
-- **Zero-Copy Rollouts**: Observations and rewards must be written directly into pre-allocated `ExperienceBuffer` memory segments.
+- **Zero-Copy Rollouts**: Observations and rewards must be written directly into pre-allocated `ExperienceBuffer` memory segments. For Safe RL, cost signals are stored in parallel tensors.
 - **Batching**: Support for "Synchronous" and "Staggered" step execution (simulating PufferLib's staggered EnvPool).
+
+---
+
+## 3. Environmental Result Specification
+All environment interactions must return standardized results to ensure cross-backend compatibility.
+
+### 3.1 `StepResult`
+- **Fields**: `observation`, `reward`, `terminated`, `truncated`, `info`, and **`cost`**.
+- **Constraint**: The `cost` field is mandatory for all `PufferEnv` implementations, defaulting to `0.0` if no safety signal is provided.
+
+### 3.2 `VecEnvResult`
+- **Fields**: Vectorized versions of `StepResult` fields, including a `costs: Vec<f32>`.
+- **Backend Responsibility**: All backends (`Serial`, `Parallel`) must correctly populate the `costs` vector from individual environment steps.
 
 ---
 
@@ -62,3 +75,21 @@ To maximize GPU utilization, PufferLib Rust should implement a non-blocking roll
 
 ### 6.2 Shared Flag Synchronization
 - **Optimization**: Use atomic flags (`std::sync::atomic`) instead of OS-level mutexes for thread synchronization between environment workers and the training master.
+
+---
+
+## 8. Hardware & Portability Standards
+
+### 8.1 no_std Compatibility
+- **Requirement**: The core environment and space traits must be compatible with `no_std`.
+- **Mechanism**: Use `alloc` crate for dynamic memory and `hashbrown` for `HashMap` in non-std environments.
+- **Feature Gate**: Enable `std` by default but allow disabling for embedded/WASM targets.
+
+### 8.2 Backend Independence
+- **Requirement**: Policy definitions should avoid hard-coding backend types in core traits where possible.
+- **Implementations**:
+    - `MlpPolicy` (Torch)
+    - `BurnMlp` (Burn)
+    - `CandleMlp` (Candle)
+    - `LuminalMlp` (Luminal)
+

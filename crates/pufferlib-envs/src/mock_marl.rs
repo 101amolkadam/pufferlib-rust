@@ -64,6 +64,7 @@ impl RawPufferEnv for MockMarl {
             terminated: done,
             truncated: false,
             info: EnvInfo::new(),
+            cost: 0.0,
         }
     }
 
@@ -98,6 +99,7 @@ impl RawPufferEnv for MockMarl {
                     terminated: done,
                     truncated: false,
                     info: EnvInfo::new(),
+                    cost: 0.0,
                 },
             );
         }

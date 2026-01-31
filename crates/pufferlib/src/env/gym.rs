@@ -2,6 +2,7 @@
 
 use crate::env::{EnvInfo, PufferEnv, StepResult};
 use crate::spaces::DynSpace;
+use crate::types::String;
 use ndarray::ArrayD;
 
 /// Standard interface for external RL environments
@@ -52,6 +53,7 @@ impl<T: GymEnv> PufferEnv for PufferGymWrapper<T> {
             terminated,
             truncated,
             info: EnvInfo::default(),
+            cost: 0.0,
         }
     }
 }

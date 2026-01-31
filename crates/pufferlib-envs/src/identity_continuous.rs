@@ -72,6 +72,7 @@ impl RawPufferEnv for IdentityContinuous {
             terminated: false,
             truncated: false,
             info: EnvInfo::new(),
+            cost: 0.0,
         }
     }
 }

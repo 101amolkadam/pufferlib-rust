@@ -6,12 +6,22 @@
 
 mod cnn;
 mod distribution;
+#[cfg(feature = "llm")]
+mod llm;
 mod lstm;
+#[cfg(feature = "luminal")]
+mod luminal;
 mod mlp;
+#[cfg(feature = "onnx")]
+mod onnx;
+mod shield;
+mod verified;
 
 #[cfg(feature = "torch")]
 pub use cnn::CnnPolicy;
 pub use distribution::{Distribution, DistributionSample};
+#[cfg(feature = "llm")]
+pub use llm::LLMPolicy;
 #[cfg(feature = "torch")]
 pub use lstm::LstmPolicy;
 #[cfg(feature = "candle")]
@@ -19,6 +29,10 @@ pub use mlp::CandleMlp;
 pub use mlp::MlpConfig;
 #[cfg(feature = "torch")]
 pub use mlp::MlpPolicy;
+#[cfg(feature = "onnx")]
+pub use onnx::OnnxPolicy;
+pub use shield::{SafetyShield, ShieldedPolicy};
+pub use verified::{VerifiablePolicy, VerifiedPolicy};
 
 #[cfg(feature = "torch")]
 use tch::{nn, Tensor};
@@ -59,6 +73,17 @@ pub trait Policy: Send {
     ) -> (Distribution, Tensor, Option<Vec<Tensor>>) {
         self.forward(observations, state)
     }
+}
+
+/// Trait for policies that support safety constraints
+#[cfg(feature = "torch")]
+pub trait SafePolicy: Policy {
+    /// Forward pass returning action distribution, reward-value estimate, cost-value estimate, and new state
+    fn forward_safe(
+        &self,
+        observations: &Tensor,
+        state: &Option<Vec<Tensor>>,
+    ) -> (Distribution, Tensor, Tensor, Option<Vec<Tensor>>);
 }
 
 /// Feature-neutral policy trait for future generic usage

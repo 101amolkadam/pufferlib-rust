@@ -91,6 +91,7 @@ impl PufferEnv for Bandit {
             terminated: true, // Episode ends after one step
             truncated: false,
             info: EnvInfo::new().with_extra("score", if correct { 1.0 } else { 0.0 }),
+            cost: 0.0,
         }
     }
 

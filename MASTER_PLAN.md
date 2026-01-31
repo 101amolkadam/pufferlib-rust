@@ -30,14 +30,27 @@ This plan consolidates the strategic vision from `ROADMAP.md`, technical optimiz
 - [x] **Continuous Actions**: Full support for Gaussian policies and SAC.
 - [x] **Advanced PPO Features**: Dual-clipping, adaptive KL, value clipping.
 - [x] **Self-Play Wrapper**: Native support for ELO-based training.
+- [x] **Safe RL**: Constrained PPO with Lagrangian dual optimization.
+- [x] **Multi-Agent**: MAPPO and team-based role support.
+- [x] **Sequence-Based**: Decision Transformer and Offline RL.
+- [x] **Preference Alignment**: GRPO for preference-based RL.
 - [x] **Protein (Auto-Tune)**: Native Bayesian HPO system.
 
-## 🛤️ Milestone 4: Hardware & Ecosystem (CURRENT)
-*Objective: High throughput and industry integrations.*
+## Track 4: Multi-Backend & Portability (DONE)
+*Objective: High throughput and cross-platform deployment.*
 
-- [ ] **Candle Backend**: Enable pure-Rust tensor operations.
-- [ ] **GPU-Native Envs**: Integration with CUDA-accelerated environments.
-- [ ] **Gymnasium Bridge**: Standardized wrappers for existing Rust environments.
+- [x] **no_std Core**: Complete refactor of core traits for embedded/WASM support.
+- [x] **Multi-Backend**: Support for Torch, Burn, Candle, Luminal, and ONNX.
+- [x] **HuggingFace Hub**: Integrated model distribution pipeline.
+- [x] **Zero-Copy Batching**: High-performance observation piping (incl. Windows Shared Memory).
+
+## 🛤️ Milestone 5: Research Frontiers (DONE)
+*Objective: State-of-the-art exploration and safety.*
+
+- [x] **Advanced Exploration**: Intrinsic Curiosity Module (ICM) and RND.
+- [x] **Alignment**: RLHF/RLAIF toolkit with Bradley-Terry Reward Modeling.
+- [x] **Formal Methods**: Runtime Action Shielding and Verified Policy traits.
+- [x] **World Models**: Full implementation of RSSM and Dreamer-inspired planning.
 
 ---
 

@@ -2,7 +2,10 @@
 
 use crate::env::EnvInfo;
 use crate::spaces::DynSpace;
+use crate::types::{vec, Vec};
 use ndarray::Array2;
+#[cfg(feature = "torch")]
+use tch::{Device, Kind, Tensor};
 
 /// Configuration for vectorized environments
 #[derive(Clone, Debug)]
@@ -73,6 +76,47 @@ impl ObservationBatch {
             Self::Candle(t) => t.dims()[0],
         }
     }
+
+    /// Create from shared memory (Zero-Copy View if Torch)
+    pub fn from_shared(buffer: &dyn super::SharedBuffer, shape: &[i64]) -> Self {
+        #[cfg(feature = "torch")]
+        {
+            let tensor = unsafe {
+                Tensor::f_from_blob(
+                    buffer.as_ptr() as *mut f32 as *mut _,
+                    shape,
+                    &[],
+                    Kind::Float,
+                    Device::Cpu,
+                )
+                .expect("Failed to create tensor from blob")
+            };
+            Self::Torch(tensor)
+        }
+        #[cfg(not(feature = "torch"))]
+        {
+            let len = buffer.len();
+            let mut data = vec![0.0f32; len];
+            unsafe {
+                core::ptr::copy_nonoverlapping(buffer.as_ptr(), data.as_mut_ptr(), len);
+            }
+            let rows = shape[0] as usize;
+            let cols = shape[1..].iter().product::<i64>() as usize;
+            let array = Array2::from_shape_vec((rows, cols), data).unwrap();
+            Self::Cpu(array)
+        }
+    }
+
+    /// Deep copy for buffer storage
+    pub fn to_owned(&self) -> Self {
+        match self {
+            Self::Cpu(a) => Self::Cpu(a.clone()),
+            #[cfg(feature = "torch")]
+            Self::Torch(t) => Self::Torch(t.shallow_clone().copy()),
+            #[cfg(feature = "candle")]
+            Self::Candle(t) => Self::Candle(t.clone()),
+        }
+    }
 }
 
 /// Result from stepping all environments
@@ -88,6 +132,8 @@ pub struct VecEnvResult {
     pub truncated: Vec<bool>,
     /// Info dictionaries
     pub infos: Vec<EnvInfo>,
+    /// Costs for all environments
+    pub costs: Vec<f32>,
 }
 
 impl VecEnvResult {

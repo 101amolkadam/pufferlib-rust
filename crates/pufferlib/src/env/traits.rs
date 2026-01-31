@@ -1,6 +1,7 @@
 //! Core environment trait definitions.
 
 use crate::spaces::DynSpace;
+use crate::types::{Box, HashMap, String, ToString, Vec};
 use ndarray::ArrayD;
 
 /// Information returned from environment steps
@@ -56,6 +57,8 @@ pub struct StepResult {
     pub truncated: bool,
     /// Additional info
     pub info: EnvInfo,
+    /// Cost received (for safety-constrained RL)
+    pub cost: f32,
 }
 
 /// Structured observation for complex spaces
@@ -64,7 +67,7 @@ pub enum Observation {
     /// Primitive array
     Array(ArrayD<f32>),
     /// Dictionary of observations
-    Dict(std::collections::HashMap<String, Observation>),
+    Dict(HashMap<String, Observation>),
     /// Tuple of observations
     Tuple(Vec<Observation>),
 }
@@ -75,7 +78,7 @@ pub enum Action {
     /// Primitive array
     Array(ArrayD<f32>),
     /// Dictionary of actions
-    Dict(std::collections::HashMap<String, Action>),
+    Dict(HashMap<String, Action>),
     /// Tuple of actions
     Tuple(Vec<Action>),
 }
@@ -93,6 +96,8 @@ pub struct RawStepResult {
     pub truncated: bool,
     /// Additional info
     pub info: EnvInfo,
+    /// Cost received
+    pub cost: f32,
 }
 
 impl StepResult {
@@ -106,15 +111,17 @@ impl StepResult {
 #[derive(Clone, Debug)]
 pub struct MultiAgentStepResult {
     /// Observations for each agent
-    pub observations: std::collections::HashMap<u32, ArrayD<f32>>,
+    pub observations: HashMap<u32, ArrayD<f32>>,
     /// Rewards for each agent
-    pub rewards: std::collections::HashMap<u32, f32>,
+    pub rewards: HashMap<u32, f32>,
     /// Done flags for each agent
-    pub terminated: std::collections::HashMap<u32, bool>,
+    pub terminated: HashMap<u32, bool>,
     /// Truncated flags for each agent
-    pub truncated: std::collections::HashMap<u32, bool>,
+    pub truncated: HashMap<u32, bool>,
     /// Additional info
     pub info: EnvInfo,
+    /// Costs for each agent
+    pub costs: HashMap<u32, f32>,
 }
 
 /// Core trait for PufferLib environments.
@@ -179,11 +186,15 @@ pub trait PufferEnv: Send {
     ///
     /// # Arguments
     /// * `actions` - Map of agent ID to action
-    fn multi_step(
-        &mut self,
-        _actions: &std::collections::HashMap<u32, ArrayD<f32>>,
-    ) -> MultiAgentStepResult {
-        unimplemented!("multi_step not implemented for this environment");
+    fn multi_step(&mut self, _actions: &HashMap<u32, ArrayD<f32>>) -> MultiAgentStepResult {
+        MultiAgentStepResult {
+            observations: HashMap::new(),
+            rewards: HashMap::new(),
+            terminated: HashMap::new(),
+            truncated: HashMap::new(),
+            info: EnvInfo::new(),
+            costs: HashMap::new(),
+        }
     }
 
     /// Optional: Render the environment
@@ -201,7 +212,7 @@ pub trait PufferEnv: Send {
 
     /// Get IDs of currently active agents
     fn active_agents(&self) -> Vec<u32> {
-        vec![0]
+        crate::types::vec![0]
     }
 
     /// Get the type/role of an agent
@@ -258,7 +269,7 @@ pub trait RawPufferEnv: Send {
 
     /// Get IDs of currently active agents
     fn active_agents(&self) -> Vec<u32> {
-        vec![0]
+        crate::types::vec![0]
     }
 
     /// Get the type/role of an agent
@@ -277,10 +288,7 @@ pub trait RawPufferEnv: Send {
     }
 
     /// Take a multi-agent structured step
-    fn multi_step(
-        &mut self,
-        _actions: &std::collections::HashMap<u32, Action>,
-    ) -> std::collections::HashMap<u32, RawStepResult> {
+    fn multi_step(&mut self, _actions: &HashMap<u32, Action>) -> HashMap<u32, RawStepResult> {
         unimplemented!("multi_step not implemented");
     }
 

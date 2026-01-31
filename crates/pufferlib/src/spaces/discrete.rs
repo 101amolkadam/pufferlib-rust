@@ -1,10 +1,12 @@
-//! Discrete action/observation space
+//! Discrete observation/action space.
 
 use super::Space;
+use crate::types::{vec, Vec};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-/// Discrete space with n possible values: {0, 1, ..., n-1}
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Simple discrete space with N choices
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Discrete {
     /// Number of possible values
     pub n: usize,

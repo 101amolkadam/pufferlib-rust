@@ -1,10 +1,12 @@
-//! Tuple observation/action space
+//! Tuple observation/action space.
 
 use super::{DynSpace, Space};
+use crate::types::{vec, Vec};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-/// Tuple space containing an ordered list of sub-spaces
-#[derive(Clone, Debug)]
+/// Tuple space containing an ordered list of subspaces
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tuple {
     /// Ordered sub-spaces
     pub spaces: Vec<DynSpace>,

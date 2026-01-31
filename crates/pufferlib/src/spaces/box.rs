@@ -1,12 +1,14 @@
 //! Box (continuous) observation/action space
 
 use super::Space;
+use crate::types::Vec;
 use ndarray::{ArrayD, IxDyn};
 use rand::Rng;
 use rand_distr::{Distribution, Uniform};
+use serde::{Deserialize, Serialize};
 
 /// Box space for continuous values with bounds
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Box {
     /// Lower bound for each element
     pub low: ArrayD<f32>,

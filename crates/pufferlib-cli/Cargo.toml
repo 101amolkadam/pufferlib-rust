@@ -20,7 +20,7 @@ pufferlib-envs = { path = "../pufferlib-envs" }
 clap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tch = { version = "0.17", optional = true }
+tch = { workspace = true, optional = true }
 ndarray = { workspace = true }
 anyhow = { workspace = true }
 indicatif = { workspace = true }

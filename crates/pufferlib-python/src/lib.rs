@@ -7,6 +7,9 @@ use pufferlib::env::{PufferEnv, StepResult};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+#[cfg(feature = "torch")]
+use pufferlib::mappo::MappoConfig;
+
 /// Python wrapper for a PufferLib environment
 #[pyclass]
 pub struct PufferPythonEnv {
@@ -53,9 +56,66 @@ impl PufferPythonEnv {
     }
 }
 
+// --- MAPPO Bindings ---
+
+#[cfg(feature = "torch")]
+#[pyclass]
+#[derive(Clone)]
+struct PyMappoConfig {
+    #[pyo3(get, set)]
+    pub num_agents: usize,
+    #[pyo3(get, set)]
+    pub obs_dim: i64,
+    #[pyo3(get, set)]
+    pub global_state_dim: i64,
+    #[pyo3(get, set)]
+    pub hidden_dim: i64,
+    #[pyo3(get, set)]
+    pub learning_rate: f64,
+    #[pyo3(get, set)]
+    pub gamma: f64,
+    #[pyo3(get, set)]
+    pub gae_lambda: f64,
+    #[pyo3(get, set)]
+    pub clip_coef: f64,
+    #[pyo3(get, set)]
+    pub update_epochs: usize,
+    #[pyo3(get, set)]
+    pub share_policy: bool,
+}
+
+#[cfg(feature = "torch")]
+#[pymethods]
+impl PyMappoConfig {
+    #[new]
+    fn new(num_agents: usize, obs_dim: i64, global_state_dim: i64) -> Self {
+        Self {
+            num_agents,
+            obs_dim,
+            global_state_dim,
+            hidden_dim: 128,
+            learning_rate: 1e-3,
+            gamma: 0.99,
+            gae_lambda: 0.95,
+            clip_coef: 0.2,
+            update_epochs: 4,
+            share_policy: true,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PyMappoConfig(num_agents={}, obs_dim={})",
+            self.num_agents, self.obs_dim
+        )
+    }
+}
+
 /// Create the PufferLib Python module
 #[pymodule]
 fn pufferlib_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PufferPythonEnv>()?;
+    #[cfg(feature = "torch")]
+    m.add_class::<PyMappoConfig>()?;
     Ok(())
 }

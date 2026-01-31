@@ -6,6 +6,11 @@ use tch::{Kind, Tensor as TorchTensor};
 #[cfg(feature = "candle")]
 use candle_core::Tensor as CandleTensor;
 
+#[cfg(feature = "burn")]
+use burn_core::tensor::{backend::Backend as BurnBackend, Tensor as BurnTensor};
+#[cfg(feature = "burn")]
+pub type PufferBurnBackend = burn_ndarray::NdArray;
+
 /// Enum for different types of probability distributions
 pub enum Distribution {
     #[cfg(feature = "torch")]
@@ -20,6 +25,16 @@ pub enum Distribution {
         mean: CandleTensor,
         std: CandleTensor,
     },
+
+    #[cfg(feature = "burn")]
+    BurnCategorical {
+        logits: BurnTensor<PufferBurnBackend, 2>,
+    },
+    #[cfg(feature = "burn")]
+    BurnGaussian {
+        mean: BurnTensor<PufferBurnBackend, 2>,
+        std: BurnTensor<PufferBurnBackend, 2>,
+    },
 }
 
 /// Helper to handle heterogeneous sample types
@@ -28,6 +43,8 @@ pub enum DistributionSample {
     Torch(TorchTensor),
     #[cfg(feature = "candle")]
     Candle(CandleTensor),
+    #[cfg(feature = "burn")]
+    Burn(BurnTensor<PufferBurnBackend, 2>), // Assuming 2D [batch, dim] for actions/samples
 }
 
 impl DistributionSample {
@@ -46,6 +63,15 @@ impl DistributionSample {
             DistributionSample::Candle(t) => t,
             #[allow(unreachable_patterns)]
             _ => panic!("Not a candle tensor"),
+        }
+    }
+
+    #[cfg(feature = "burn")]
+    pub fn as_burn(&self) -> &BurnTensor<PufferBurnBackend, 2> {
+        match self {
+            DistributionSample::Burn(t) => t,
+            #[allow(unreachable_patterns)]
+            _ => panic!("Not a burn tensor"),
         }
     }
 }
@@ -75,6 +101,41 @@ impl Distribution {
             Distribution::CandleGaussian { mean, std } => {
                 let noise = CandleTensor::randn_like(mean, 0.0, 1.0).unwrap();
                 DistributionSample::Candle((mean + (noise * std).unwrap()).unwrap())
+            }
+            #[cfg(feature = "burn")]
+            Distribution::BurnCategorical { logits } => {
+                let shape = logits.shape();
+                let u = BurnTensor::<PufferBurnBackend, 2>::random(
+                    shape.clone(),
+                    burn_core::tensor::Distribution::Uniform(0.0, 1.0),
+                    &logits.device(),
+                );
+                // Gumbel = -log(-log(u))
+                let gumbel = u.log().mul_scalar(-1.0).log().mul_scalar(-1.0);
+                let perturbed = logits.clone().add(gumbel);
+                let sample_int = perturbed.argmax(1); // Tensor<B, 2, Int> (keeps dims usually in Burn?)
+                                                      // If it reduces, we reshape. Burn's argmax reduces dimension in some versions, keeps in others.
+                                                      // Let's assume it might reduce. But we want 2D [Batch, 1] for consistency?
+                                                      // Actually `DistributionSample::Burn` is `BurnTensor<..., 2>`.
+                                                      // If argmax returns [Batch], we need [Batch, 1].
+                let sample_float = sample_int.float(); // Convert to float tensor
+                                                       // Ensure 2D
+                let dims = sample_float.dims();
+                if dims.len() == 1 {
+                    DistributionSample::Burn(sample_float.unsqueeze_dim(1))
+                } else {
+                    DistributionSample::Burn(sample_float)
+                }
+            }
+            #[cfg(feature = "burn")]
+            Distribution::BurnGaussian { mean, std } => {
+                let shape = mean.shape();
+                let noise = BurnTensor::<PufferBurnBackend, 2>::random(
+                    shape,
+                    burn_core::tensor::Distribution::Normal(0.0, 1.0),
+                    &mean.device(),
+                );
+                DistributionSample::Burn(mean.clone().add(noise.mul(std.clone())))
             }
         }
     }
@@ -157,6 +218,32 @@ impl Distribution {
                         .expect("sum failed"),
                 )
             }
+            #[cfg(feature = "burn")]
+            (Distribution::BurnCategorical { logits }, DistributionSample::Burn(actions)) => {
+                let log_probs = burn_core::tensor::activation::log_softmax(logits.clone(), 1);
+                // actions is float (from sample), convert to int for gather
+                let indices = actions.int();
+                let gathered = log_probs.gather(1, indices);
+                DistributionSample::Burn(gathered)
+            }
+            #[cfg(feature = "burn")]
+            (Distribution::BurnGaussian { mean, std }, DistributionSample::Burn(actions)) => {
+                let var = std.clone().powf_scalar(2.0);
+                let log_std = std.clone().log();
+                let log_2pi = (2.0 * std::f64::consts::PI).ln();
+
+                let diff = actions.clone().sub(mean.clone());
+                let sq_diff = diff.powf_scalar(2.0);
+
+                // -0.5 * (sq_diff / (var + eps) + 2*log_std + log_2pi)
+                let term1 = sq_diff.div(var.add_scalar(1e-8));
+                let term2 = log_std.mul_scalar(2.0);
+                let term3 = term1.add(term2).add_scalar(log_2pi);
+                let log_prob = term3.mul_scalar(-0.5);
+
+                // Sum along last dim (actions)
+                DistributionSample::Burn(log_prob.sum_dim(1))
+            }
             #[allow(unreachable_patterns)]
             _ => panic!("Backend mismatch in log_prob"),
         }
@@ -204,6 +291,20 @@ impl Distribution {
                 let entropy = (log_std + (0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln()))
                     .expect("entropy computation failed");
                 DistributionSample::Candle(entropy.sum(candle_core::D::Minus1).expect("sum failed"))
+            }
+            #[cfg(feature = "burn")]
+            Self::BurnCategorical { logits } => {
+                let probs = burn_core::tensor::activation::softmax(logits.clone(), 1);
+                let log_probs = burn_core::tensor::activation::log_softmax(logits.clone(), 1);
+                let entropy = probs.mul(log_probs).sum_dim(1).mul_scalar(-1.0);
+                DistributionSample::Burn(entropy)
+            }
+            #[cfg(feature = "burn")]
+            Self::BurnGaussian { mean: _, std } => {
+                let log_std = std.clone().log();
+                let constant = 0.5 + 0.5 * (2.0 * std::f64::consts::PI).ln();
+                let entropy = log_std.add_scalar(constant);
+                DistributionSample::Burn(entropy.sum_dim(1))
             }
         }
     }

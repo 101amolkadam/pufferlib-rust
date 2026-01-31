@@ -1,5 +1,7 @@
 //! Utility functions.
 
+use crate::types::{format, String, ToString};
+
 /// Set global random seed
 pub fn set_seed(_seed: u64) {
     // Note: This only sets Rust's RNG seed

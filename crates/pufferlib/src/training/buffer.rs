@@ -24,6 +24,15 @@ pub struct ExperienceBuffer {
     /// Importance sampling weights (for V-trace)
     pub importance: Tensor,
 
+    /// Costs received
+    pub costs: Tensor,
+    /// Cost value estimates
+    pub cost_values: Tensor,
+    /// Cost advantages
+    pub cost_advantages: Tensor,
+    /// Cost returns
+    pub cost_returns: Tensor,
+
     /// Current position in buffer
     pos: usize,
     /// Buffer capacity
@@ -55,6 +64,10 @@ impl ExperienceBuffer {
             advantages: Tensor::zeros([total], (Kind::Float, device)),
             returns: Tensor::zeros([total], (Kind::Float, device)),
             importance: Tensor::ones([total], (Kind::Float, device)),
+            costs: Tensor::zeros([total], (Kind::Float, device)),
+            cost_values: Tensor::zeros([total], (Kind::Float, device)),
+            cost_advantages: Tensor::zeros([total], (Kind::Float, device)),
+            cost_returns: Tensor::zeros([total], (Kind::Float, device)),
             pos: 0,
             capacity,
             num_envs,
@@ -71,6 +84,8 @@ impl ExperienceBuffer {
         rewards: &Tensor,
         dones: &Tensor,
         values: &Tensor,
+        costs: &Tensor,
+        cost_values: &Tensor,
     ) {
         let start = (self.pos * self.num_envs) as i64;
         let end = start + self.num_envs as i64;
@@ -90,6 +105,10 @@ impl ExperienceBuffer {
         self.rewards.narrow(0, start, end - start).copy_(rewards);
         self.dones.narrow(0, start, end - start).copy_(dones);
         self.values.narrow(0, start, end - start).copy_(values);
+        self.costs.narrow(0, start, end - start).copy_(costs);
+        self.cost_values
+            .narrow(0, start, end - start)
+            .copy_(cost_values);
         let _ = self.importance.narrow(0, start, end - start).fill_(1.0);
 
         self.pos += 1;
@@ -150,6 +169,46 @@ impl ExperienceBuffer {
                 .narrow(0, start, end - start)
                 .copy_(&last_gae);
             self.returns
+                .narrow(0, start, end - start)
+                .copy_(&(&last_gae + &values));
+        }
+    }
+
+    /// Compute cost returns and advantages using GAE
+    pub fn compute_cost_advantages(
+        &mut self,
+        last_cost_value: &Tensor,
+        gamma: f64,
+        gae_lambda: f64,
+    ) {
+        let steps = self.pos;
+        let mut last_gae = Tensor::zeros([self.num_envs as i64], (Kind::Float, self.device));
+        let last_val = last_cost_value.shallow_clone();
+
+        for t in (0..steps).rev() {
+            let start = (t * self.num_envs) as i64;
+            let end = start + self.num_envs as i64;
+
+            let next_values = if t == steps - 1 {
+                last_val.shallow_clone()
+            } else {
+                let next_start = ((t + 1) * self.num_envs) as i64;
+                self.cost_values
+                    .narrow(0, next_start, self.num_envs as i64)
+                    .shallow_clone()
+            };
+
+            let costs = self.costs.narrow(0, start, end - start);
+            let dones = self.dones.narrow(0, start, end - start);
+            let values = self.cost_values.narrow(0, start, end - start);
+
+            let delta = &costs + gamma * &next_values * (1.0 - &dones) - &values;
+            last_gae = &delta + gamma * gae_lambda * (1.0 - &dones) * &last_gae;
+
+            self.cost_advantages
+                .narrow(0, start, end - start)
+                .copy_(&last_gae);
+            self.cost_returns
                 .narrow(0, start, end - start)
                 .copy_(&(&last_gae + &values));
         }
@@ -224,6 +283,10 @@ impl ExperienceBuffer {
             advantages: self.advantages.index_select(0, indices).detach(),
             returns: self.returns.index_select(0, indices).detach(),
             values: self.values.index_select(0, indices).detach(),
+            costs: self.costs.index_select(0, indices).detach(),
+            cost_advantages: self.cost_advantages.index_select(0, indices).detach(),
+            cost_values: self.cost_values.index_select(0, indices).detach(),
+            cost_returns: self.cost_returns.index_select(0, indices).detach(),
         }
     }
 }
@@ -236,6 +299,10 @@ pub struct MiniBatch {
     pub advantages: Tensor,
     pub returns: Tensor,
     pub values: Tensor,
+    pub costs: Tensor,
+    pub cost_advantages: Tensor,
+    pub cost_values: Tensor,
+    pub cost_returns: Tensor,
 }
 
 #[cfg(test)]
@@ -260,12 +327,50 @@ mod tests {
         let dones = Tensor::zeros([2], (Kind::Float, Device::Cpu));
         let values = Tensor::zeros([2], (Kind::Float, Device::Cpu));
 
-        buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
+        let zero_costs = Tensor::zeros([2], (Kind::Float, Device::Cpu));
+        let zero_values = Tensor::zeros([2], (Kind::Float, Device::Cpu));
+        buffer.add(
+            &obs,
+            &actions,
+            &log_probs,
+            &rewards,
+            &dones,
+            &values,
+            &zero_costs,
+            &zero_values,
+        );
         assert_eq!(buffer.len(), 2);
 
-        buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
-        buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
-        buffer.add(&obs, &actions, &log_probs, &rewards, &dones, &values);
+        buffer.add(
+            &obs,
+            &actions,
+            &log_probs,
+            &rewards,
+            &dones,
+            &values,
+            &zero_costs,
+            &zero_values,
+        );
+        buffer.add(
+            &obs,
+            &actions,
+            &log_probs,
+            &rewards,
+            &dones,
+            &values,
+            &zero_costs,
+            &zero_values,
+        );
+        buffer.add(
+            &obs,
+            &actions,
+            &log_probs,
+            &rewards,
+            &dones,
+            &values,
+            &zero_costs,
+            &zero_values,
+        );
         assert!(buffer.is_full());
     }
 }

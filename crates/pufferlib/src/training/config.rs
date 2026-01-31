@@ -1,5 +1,6 @@
 //! Trainer configuration.
 
+use crate::spaces::Space;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "torch")]
 use tch::Device;
@@ -80,8 +81,63 @@ pub struct TrainerConfig {
     /// Snapshot interval (epochs)
     pub self_play_snapshot_interval: usize,
 
+    // Logging
+    /// Whether to enable W&B logging
+    pub wandb_enabled: bool,
+    /// W&B project name
+    pub wandb_project: String,
+    /// W&B run name
+    pub wandb_run_name: String,
+    /// W&B entity name
+    pub wandb_entity: String,
+    /// W&B group name
+    pub wandb_group: String,
+
+    // AMP
+    /// Whether to use Automatic Mixed Precision (AMP)
+    pub use_amp: bool,
+    /// Initial scale for GradScaler
+    pub amp_initial_scale: f64,
+
+    // Performance
+    /// Number of minibatches to accumulate gradients over
+    pub gradient_accumulation_steps: usize,
+
+    // ICM
+    /// Weight for intrinsic rewards
+    pub icm_beta: f64,
+
+    // RND
+    /// Weight for RND intrinsic rewards
+    pub rnd_beta: f64,
+
     // Random seed
     pub seed: u64,
+}
+
+/// Configuration for Safe RL (Constrained PPO)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ConstrainedPpoConfig {
+    /// Safety threshold for average cost per episode or per step (depends on impl)
+    /// Usually interpreted as the limit on the expected cumulative cost.
+    pub cost_limit: f32,
+    /// Learning rate for the Lagrangian multiplier
+    pub lagrangian_lr: f64,
+    /// Initial value for the Lagrangian multiplier (λ)
+    pub initial_lagrangian: f64,
+    /// Whether to use GAE for cost advantage estimation
+    pub use_cost_gae: bool,
+}
+
+impl Default for ConstrainedPpoConfig {
+    fn default() -> Self {
+        Self {
+            cost_limit: 1.0,
+            lagrangian_lr: 0.01,
+            initial_lagrangian: 0.1,
+            use_cost_gae: true,
+        }
+    }
 }
 
 #[cfg(feature = "torch")]
@@ -125,8 +181,20 @@ impl Default for TrainerConfig {
             self_play_learner_ratio: 1.0,
             self_play_snapshot_interval: 100,
 
+            wandb_enabled: false,
+            wandb_project: "pufferlib".to_string(),
+            wandb_run_name: "ppo".to_string(),
+            wandb_entity: "".to_string(),
+            wandb_group: "".to_string(),
+
+            use_amp: false,
+            amp_initial_scale: 65536.0,
+
             #[cfg(feature = "torch")]
             device: Device::Cpu,
+            gradient_accumulation_steps: 1,
+            icm_beta: 0.1,
+            rnd_beta: 0.1,
             seed: 42,
         }
     }
@@ -149,6 +217,14 @@ impl TrainerConfig {
     /// Set learning rate
     pub fn with_lr(mut self, lr: f64) -> Self {
         self.learning_rate = lr;
+        self
+    }
+
+    /// Enable W&B logging
+    pub fn with_wandb(mut self, project: &str, name: &str) -> Self {
+        self.wandb_enabled = true;
+        self.wandb_project = project.to_string();
+        self.wandb_run_name = name.to_string();
         self
     }
 

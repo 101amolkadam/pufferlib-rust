@@ -1,12 +1,14 @@
-//! MultiDiscrete action/observation space
+//! Multi-discrete observation/action space.
 
 use super::Space;
+use crate::types::{vec, Vec};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-/// MultiDiscrete space for multiple discrete action dimensions
+/// Multiple discrete choices in a single action
 ///
 /// Each dimension i has nvec[i] possible values: {0, 1, ..., nvec[i]-1}
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MultiDiscrete {
     /// Number of values for each dimension
     pub nvec: Vec<usize>,

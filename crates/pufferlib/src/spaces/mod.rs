@@ -16,8 +16,10 @@ pub use r#box::Box;
 pub use tree::SpaceTree;
 pub use tuple::Tuple;
 
+use crate::types::Vec;
 use ndarray::ArrayD;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 /// Trait for observation and action spaces
 pub trait Space: Clone + Send + Sync {
@@ -43,7 +45,7 @@ pub trait Space: Clone + Send + Sync {
 }
 
 /// Enum for dynamic space types
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DynSpace {
     Discrete(Discrete),
     MultiDiscrete(MultiDiscrete),

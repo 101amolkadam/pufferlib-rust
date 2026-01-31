@@ -6,6 +6,7 @@
 use super::vecenv::{ObservationBatch, VecEnvBackend, VecEnvResult};
 use crate::env::{EnvInfo, PufferEnv};
 use crate::spaces::DynSpace;
+use crate::types::Vec;
 use ndarray::{Array2, ArrayD, IxDyn};
 
 /// Serial vectorization backend
@@ -87,6 +88,7 @@ impl<E: PufferEnv> VecEnvBackend for Serial<E> {
         let mut terminated = Vec::with_capacity(self.num_envs);
         let mut truncated = Vec::with_capacity(self.num_envs);
         let mut infos = Vec::with_capacity(self.num_envs);
+        let mut costs = Vec::with_capacity(self.num_envs);
 
         for (i, env) in self.envs.iter_mut().enumerate() {
             // Get action for this env
@@ -102,6 +104,7 @@ impl<E: PufferEnv> VecEnvBackend for Serial<E> {
                 terminated.push(false);
                 truncated.push(false);
                 infos.push(info);
+                costs.push(0.0);
             } else {
                 let result = env.step(&action);
                 observations.extend(result.observation.into_iter());
@@ -109,6 +112,7 @@ impl<E: PufferEnv> VecEnvBackend for Serial<E> {
                 terminated.push(result.terminated);
                 truncated.push(result.truncated);
                 infos.push(result.info);
+                costs.push(result.cost);
             }
         }
 
@@ -121,6 +125,7 @@ impl<E: PufferEnv> VecEnvBackend for Serial<E> {
             terminated,
             truncated,
             infos,
+            costs,
         }
     }
 

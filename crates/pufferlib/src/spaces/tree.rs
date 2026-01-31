@@ -1,6 +1,7 @@
 //! Space metadata for recursive flattening/unflattening.
 
 use super::{DynSpace, Space};
+use crate::types::{Box, HashMap, String, Vec};
 
 /// Tree structure representing the nested layout of a complex space
 #[derive(Clone, Debug)]
@@ -134,7 +135,7 @@ impl SpaceTree {
                 )
             }
             SpaceTree::Dict { children, .. } => {
-                let mut map = std::collections::HashMap::new();
+                let mut map = HashMap::new();
                 for (name, child_tree) in children {
                     map.insert(name.clone(), child_tree.unflatten(buf));
                 }

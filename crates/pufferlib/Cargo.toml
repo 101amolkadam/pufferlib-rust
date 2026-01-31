@@ -6,25 +6,52 @@ authors.workspace = true
 license.workspace = true
 description = "High-performance reinforcement learning library"
 
+[lib]
+name = "pufferlib"
+
+
 [features]
-default = []
-torch = ["tch"]
-candle = ["candle-core", "candle-nn", "candle-transformers"]
+default = ["std"]
+std = ["anyhow/std", "thiserror/std", "serde/std", "serde_json/std", "ndarray/std", "ndarray/serde", "rand/std", "rand_distr/std"]
+torch = ["std", "tch", "torch-sys"]
+candle = ["std", "candle-core", "candle-nn", "candle-transformers"]
+burn = ["burn-core", "burn-ndarray"]
+luminal = ["dep:luminal"]
+hf-hub = ["dep:hf-hub"]
+onnx = ["dep:ort"]
+llm = ["dep:llm-chain"]
+# Checkpointing features
+checkpoint = ["bincode"]
+checkpoint-compressed = ["checkpoint", "flate2"]
+# Logging features
+tensorboard = ["tensorboard-rs"]
+# Python integration
+python = ["pyo3", "numpy"]
+
 
 [dependencies]
 # Core dependencies
-ndarray = { workspace = true }
+ndarray = { workspace = true, features = ["serde"] }
 ndarray-rand = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
 
 # Neural networks - optional, requires libtorch installed
-tch = { version = "0.17", optional = true }
+tch = { workspace = true, optional = true }
+torch-sys = { version = "0.23", optional = true }
 
 # Pure Rust neural networks - optional
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
+
+burn-core = { version = "0.13.0", optional = true, default-features = false }
+burn-ndarray = { version = "0.13.0", optional = true, default-features = false }
+
+luminal = { version = "0.2", optional = true }
+hf-hub = { version = "0.3", optional = true }
+ort = { version = "2.0.0-rc.11", optional = true }
+llm-chain = { version = "0.13", optional = true }
 
 # Parallelism
 rayon = { workspace = true }
@@ -32,11 +59,14 @@ crossbeam = { workspace = true }
 crossbeam-channel = { workspace = true }
 
 # Serialization
-serde = { workspace = true }
+serde = { workspace = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true }
+bincode = { version = "1.3", optional = true }
+flate2 = { version = "1.0", optional = true }
 
 # Logging
 tracing = { workspace = true }
+tensorboard-rs = { version = "0.5", optional = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -47,6 +77,14 @@ num-traits = { workspace = true }
 ordered-float = { workspace = true }
 smallvec = { workspace = true }
 indicatif = { workspace = true }
+puffin = "0.16"
+
+hashbrown = { version = "0.14", features = ["serde"] }
+
+# Python bindings (optional for PettingZoo support)
+pyo3 = { workspace = true, optional = true }
+numpy = { workspace = true, optional = true }
+
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true }
@@ -55,7 +93,12 @@ windows-sys = { workspace = true }
 criterion = "0.5"
 pufferlib-envs = { path = "../pufferlib-envs" }
 ndarray = { workspace = true }
+tempfile = "3.10"
 
 [[example]]
 name = "repro_panic"
+required-features = ["torch"]
+
+[[example]]
+name = "profile_training"
 required-features = ["torch"]

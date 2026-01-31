@@ -5,6 +5,7 @@
 use super::vecenv::{ObservationBatch, VecEnvBackend, VecEnvResult};
 use crate::env::{EnvInfo, PufferEnv};
 use crate::spaces::DynSpace;
+use crate::types::{format, vec, Box, Vec};
 use ndarray::{Array2, ArrayD, IxDyn};
 use rayon::prelude::*;
 
@@ -51,24 +52,26 @@ impl<E: PufferEnv> Parallel<E> {
         // Replace first env to ensure we reuse the one created for space detection
         envs[0] = first_env;
 
-        // Initialize shared buffer if on Windows mapping
-        #[cfg(target_os = "windows")]
-        let obs_buffer = {
-            let total_obs_size = num_envs * obs_shape.iter().product::<usize>();
-            let name = format!("pufferlib_obs_{}", rand::random::<u32>());
-            match super::Win32SharedBuffer::new(&name, total_obs_size) {
-                Ok(buf) => Some(Box::new(buf) as Box<dyn super::SharedBuffer>),
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to create shared buffer: {}. Falling back to heap.",
-                        e
-                    );
-                    None
-                }
+        // Initialize shared buffer for zero-copy
+        let total_obs_size = num_envs * obs_shape.iter().product::<usize>();
+        let name = format!("pufferlib_obs_{}", rand::random::<u32>());
+
+        #[cfg(all(target_os = "windows", feature = "std"))]
+        let obs_buffer = match super::Win32SharedBuffer::new(&name, total_obs_size) {
+            Ok(buf) => Some(Box::new(buf) as Box<dyn super::SharedBuffer>),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to create shared buffer: {}. Falling back to heap.",
+                    e
+                );
+                Some(Box::new(super::HeapBuffer::new(&name, total_obs_size))
+                    as Box<dyn super::SharedBuffer>)
             }
         };
-        #[cfg(not(target_os = "windows"))]
-        let obs_buffer = None;
+        #[cfg(not(all(target_os = "windows", feature = "std")))]
+        let obs_buffer =
+            Some(Box::new(super::HeapBuffer::new(&name, total_obs_size))
+                as Box<dyn super::SharedBuffer>);
 
         Self {
             envs,
@@ -111,7 +114,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                     let ptr = send_ptr.0;
                     unsafe {
                         let offset_ptr = ptr.add(i * obs_size);
-                        std::ptr::copy_nonoverlapping(obs.as_ptr(), offset_ptr, obs_size);
+                        core::ptr::copy_nonoverlapping(obs.as_ptr(), offset_ptr, obs_size);
                     }
                 }
 
@@ -121,17 +124,22 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
 
         let infos: Vec<_> = results.iter().map(|(_, i)| i.clone()).collect();
 
-        // Compatibility: Return an owned Array2 by stacking.
-        // The data is ALSO in the shared buffer for the trainer to use (Zero-Copy Read).
-        let observations: Vec<_> = results.into_iter().map(|(o, _)| o).collect();
-        let flat_obs: Vec<f32> = observations
-            .iter()
-            .flat_map(|o| o.iter().copied())
-            .collect();
-        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs)
-            .expect("Failed to create observation array");
-
-        (ObservationBatch::Cpu(obs_array), infos)
+        if let Some(buf) = &self.obs_buffer {
+            let mut shape = vec![self.num_envs as i64];
+            for &s in &self.obs_shape {
+                shape.push(s as i64);
+            }
+            (ObservationBatch::from_shared(buf.as_ref(), &shape), infos)
+        } else {
+            // Fallback for non-buffer cases (unlikely now)
+            let observations: Vec<_> = results.into_iter().map(|(o, _)| o).collect();
+            let flat_obs: Vec<f32> = observations
+                .iter()
+                .flat_map(|o| o.iter().copied())
+                .collect();
+            let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs).unwrap();
+            (ObservationBatch::Cpu(obs_array), infos)
+        }
     }
 
     fn step(&mut self, actions: &Array2<f32>) -> VecEnvResult {
@@ -150,7 +158,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
 
                 let result = if env.is_done() {
                     let (obs, info) = env.reset(None);
-                    (obs, 0.0, false, false, info)
+                    (obs, 0.0, false, false, info, 0.0)
                 } else {
                     let res = env.step(&action);
                     (
@@ -159,6 +167,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                         res.terminated,
                         res.truncated,
                         res.info,
+                        res.cost,
                     )
                 };
 
@@ -167,7 +176,7 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
                     let ptr = send_ptr.0;
                     unsafe {
                         let offset_ptr = ptr.add(i * obs_size);
-                        std::ptr::copy_nonoverlapping(result.0.as_ptr(), offset_ptr, obs_size);
+                        core::ptr::copy_nonoverlapping(result.0.as_ptr(), offset_ptr, obs_size);
                     }
                 }
 
@@ -175,25 +184,36 @@ impl<E: PufferEnv> VecEnvBackend for Parallel<E> {
             })
             .collect();
 
-        let rewards: Vec<_> = results.iter().map(|(_, r, _, _, _)| *r).collect();
-        let terminated: Vec<_> = results.iter().map(|(_, _, t, _, _)| *t).collect();
-        let truncated: Vec<_> = results.iter().map(|(_, _, _, t, _)| *t).collect();
-        let infos: Vec<_> = results.iter().map(|(_, _, _, _, i)| i.clone()).collect();
+        let rewards: Vec<_> = results.iter().map(|(_, r, _, _, _, _)| *r).collect();
+        let terminated: Vec<_> = results.iter().map(|(_, _, t, _, _, _)| *t).collect();
+        let truncated: Vec<_> = results.iter().map(|(_, _, _, t, _, _)| *t).collect();
+        let infos: Vec<_> = results.iter().map(|(_, _, _, _, i, _)| i.clone()).collect();
+        let costs: Vec<_> = results.iter().map(|(_, _, _, _, _, c)| *c).collect();
 
-        let observations: Vec<_> = results.into_iter().map(|(o, _, _, _, _)| o).collect();
-        let flat_obs: Vec<f32> = observations
-            .iter()
-            .flat_map(|o| o.iter().copied())
-            .collect();
-        let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs)
-            .expect("Failed to create observation array");
+        let observations = if let Some(buf) = &self.obs_buffer {
+            let mut shape = vec![self.num_envs as i64];
+            for &s in &self.obs_shape {
+                shape.push(s as i64);
+            }
+            ObservationBatch::from_shared(buf.as_ref(), &shape)
+        } else {
+            let observations_vec: Vec<_> =
+                results.into_iter().map(|(o, _, _, _, _, _)| o).collect();
+            let flat_obs: Vec<f32> = observations_vec
+                .iter()
+                .flat_map(|o| o.iter().copied())
+                .collect();
+            let obs_array = Array2::from_shape_vec((self.num_envs, obs_size), flat_obs).unwrap();
+            ObservationBatch::Cpu(obs_array)
+        };
 
         VecEnvResult {
-            observations: ObservationBatch::Cpu(obs_array),
+            observations,
             rewards,
             terminated,
             truncated,
             infos,
+            costs,
         }
     }
 

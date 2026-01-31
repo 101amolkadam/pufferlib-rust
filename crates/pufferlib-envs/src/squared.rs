@@ -194,6 +194,7 @@ impl PufferEnv for Squared {
             terminated: done,
             truncated: false,
             info,
+            cost: 0.0,
         }
     }
 

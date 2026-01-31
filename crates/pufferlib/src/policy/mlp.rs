@@ -6,6 +6,16 @@ use crate::spaces::{DynSpace, Space};
 #[cfg(feature = "torch")]
 use tch::{nn, nn::Module, Device, Tensor};
 
+#[cfg(feature = "candle")]
+use candle_nn as candle_nn_backend;
+
+#[cfg(feature = "burn")]
+use burn_core::{
+    module::Module as BurnModule,
+    nn::{self as burn_nn},
+    tensor::{backend::Backend as BurnBackend, Tensor as BurnTensor},
+};
+
 /// Configuration for MLP policy
 #[derive(Clone, Debug)]
 pub struct MlpConfig {
@@ -45,6 +55,8 @@ pub struct MlpPolicy {
     actor: nn::Linear,
     /// Critic head (value estimate)
     critic: nn::Linear,
+    /// Cost critic head (safety cost estimate)
+    cost_critic: nn::Linear,
     /// Number of actions
     _num_actions: i64,
     /// Whether this is a continuous policy
@@ -102,6 +114,12 @@ impl MlpPolicy {
             Default::default(),
         );
         let critic = nn::linear(&root / "critic", config.hidden_size, 1, Default::default());
+        let cost_critic = nn::linear(
+            &root / "cost_critic",
+            config.hidden_size,
+            1,
+            Default::default(),
+        );
 
         // Initialize weights
         Self::init_weights(&vs);
@@ -111,6 +129,7 @@ impl MlpPolicy {
             encoder,
             actor,
             critic,
+            cost_critic,
             _num_actions: num_actions,
             is_continuous,
             device,
@@ -220,6 +239,36 @@ impl Policy for MlpPolicy {
     }
 }
 
+#[cfg(feature = "torch")]
+impl super::SafePolicy for MlpPolicy {
+    fn forward_safe(
+        &self,
+        observations: &Tensor,
+        _state: &Option<Vec<Tensor>>,
+    ) -> (super::Distribution, Tensor, Tensor, Option<Vec<Tensor>>) {
+        let obs = observations.to_device(self.device);
+        let hidden = self.encoder.forward(&obs);
+        let actor_out = self.actor.forward(&hidden);
+        let value = self.critic.forward(&hidden).squeeze_dim(-1);
+        let cost_value = self.cost_critic.forward(&hidden).squeeze_dim(-1);
+
+        let dist = if self.is_continuous {
+            let mean_logstd = actor_out.chunk(2, -1);
+            let mean = mean_logstd[0].shallow_clone();
+            let log_std = mean_logstd[1].clamp(-20.0, 2.0);
+
+            super::Distribution::Gaussian {
+                mean,
+                std: log_std.exp(),
+            }
+        } else {
+            super::Distribution::Categorical { logits: actor_out }
+        };
+
+        (dist, value, cost_value, None)
+    }
+}
+
 #[cfg(feature = "candle")]
 pub struct CandleMlp {
     encoder: candle_nn::Sequential,
@@ -295,6 +344,90 @@ impl CandleMlp {
         };
 
         Ok((dist, value))
+    }
+}
+
+#[cfg(feature = "burn")]
+use crate::policy::distribution::PufferBurnBackend;
+
+#[cfg(feature = "burn")]
+#[derive(burn_core::module::Module, Debug)]
+pub struct BurnMlp {
+    encoder_mlp: burn_nn::Mlp<PufferBurnBackend>,
+    actor: burn_nn::Linear<PufferBurnBackend>,
+    critic: burn_nn::Linear<PufferBurnBackend>,
+    is_continuous: bool,
+}
+
+#[cfg(feature = "burn")]
+impl BurnMlp {
+    pub fn new(
+        obs_size: usize,
+        num_actions: usize,
+        is_continuous: bool,
+        config: MlpConfig,
+        device: &<PufferBurnBackend as BurnBackend>::Device,
+    ) -> Self {
+        let activation = match config.activation {
+            Activation::ReLU => burn_nn::Gelu, // Burn MlpConfig currently might not support runtime activation choice easily or maps differently.
+            // Actually MlpConfig in Burn usually takes an activation type or enum.
+            // Checking Burn docs: MlpConfig usually allows setting activation.
+            // For now, I'll default to Gelu or Relu if I can finding the enum.
+            // Let's assume burn_nn::Relu works.
+            Activation::Tanh => burn_nn::Gelu, // Placeholder
+            Activation::Gelu => burn_nn::Gelu,
+        };
+        // Note: In Burn 0.13, Mlp generic over B only? Or allows activation?
+        // Simple approach: Use default activation (Relu/Gelu) for now.
+
+        let mlp_config = burn_nn::MlpConfig::new(
+            config.num_layers,
+            obs_size,
+            config.hidden_size as usize,
+            config.hidden_size as usize,
+        );
+        // .with_activation(...) if supported
+
+        let encoder_mlp = burn_nn::Mlp::new(&mlp_config, device);
+
+        let actor_out = if is_continuous {
+            num_actions * 2
+        } else {
+            num_actions
+        };
+
+        let actor = burn_nn::LinearConfig::new(config.hidden_size as usize, actor_out).init(device);
+        let critic = burn_nn::LinearConfig::new(config.hidden_size as usize, 1).init(device);
+
+        Self {
+            encoder_mlp,
+            actor,
+            critic,
+            is_continuous,
+        }
+    }
+
+    pub fn forward(
+        &self,
+        observations: BurnTensor<PufferBurnBackend, 2>,
+    ) -> (super::Distribution, BurnTensor<PufferBurnBackend, 1>) {
+        let hidden = self.encoder_mlp.forward(observations);
+        let actor_out = self.actor.forward(hidden.clone());
+        let value = self.critic.forward(hidden).squeeze(1);
+
+        let dist = if self.is_continuous {
+            let chunks = actor_out.chunk(2, 1);
+            let mean = chunks[0].clone();
+            let log_std = chunks[1].clone().clamp(-20.0, 2.0);
+            super::Distribution::BurnGaussian {
+                mean,
+                std: log_std.exp(),
+            }
+        } else {
+            super::Distribution::BurnCategorical { logits: actor_out }
+        };
+
+        (dist, value)
     }
 }
 

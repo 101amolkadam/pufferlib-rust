@@ -1,7 +1,7 @@
 use super::{EnvInfo, Observation, PufferEnv, RawPufferEnv, StepResult};
 use crate::spaces::{DynSpace, SpaceTree};
+use crate::types::{vec, HashMap, String, Vec};
 use ndarray::{ArrayD, IxDyn};
-use std::collections::HashMap;
 
 /// Emulation layer that wraps a RawPufferEnv and provides flattening, padding, and masking.
 pub struct EmulationLayer<E: RawPufferEnv> {
@@ -99,6 +99,7 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
                 terminated: res.terminated,
                 truncated: res.truncated,
                 info: res.info,
+                cost: res.cost,
             };
         }
 
@@ -126,6 +127,7 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
         let mut terminated = false;
         let mut truncated = false;
         let mut combined_info = EnvInfo::new();
+        let mut total_cost = 0.0;
 
         for i in 0..self.num_agents as u32 {
             if let Some(res) = res_map.get(&i) {
@@ -140,6 +142,7 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
                 if i == 0 {
                     combined_info = res.info.clone();
                 }
+                total_cost += res.cost;
             }
         }
 
@@ -149,6 +152,7 @@ impl<E: RawPufferEnv> PufferEnv for EmulationLayer<E> {
             terminated,
             truncated,
             info: combined_info,
+            cost: total_cost,
         }
     }
 
@@ -282,6 +286,7 @@ mod tests {
                         terminated: false,
                         truncated: false,
                         info: EnvInfo::new(),
+                        cost: 0.0,
                     },
                 );
             }
@@ -358,6 +363,7 @@ mod tests {
                     terminated: false,
                     truncated: false,
                     info: EnvInfo::new(),
+                    cost: 0.0,
                 },
             );
             let mut m = HashMap::new();
@@ -373,6 +379,7 @@ mod tests {
                     terminated: false,
                     truncated: false,
                     info: EnvInfo::new(),
+                    cost: 0.0,
                 },
             );
             r
