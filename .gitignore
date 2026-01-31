@@ -20,10 +20,10 @@ build_err.txt
 *.sublime-workspace
 
 # Project specific
-/libtorch
-/checkpoints
-/checkpoints_test
-/data
+/libtorch/
+/checkpoints/
+/checkpoints_test/
+/data/
 /pufferlib_rust.pyd
 
 # Python build artifacts and environments
@@ -34,6 +34,10 @@ __pycache__/
 *.so
 *.dll
 *.dylib
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
 .venv/
 venv/
 ENV/
@@ -44,6 +48,7 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.ipynb_checkpoints/
 
 # Logs and Debug
 *.log
@@ -73,3 +78,4 @@ desktop.ini
 *.temp
 *.bak
 *~
+node_modules/
