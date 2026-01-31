@@ -31,9 +31,15 @@ env/
 # Logs and Debug
 *.log
 *.txt
+*.json
+*.pt
 !README.md
 !LICENSE
 !Cargo.toml
+!VERSIONS
+!pyproject.toml
+!**/Cargo.toml
+!**/proto/*.proto
 
 # OS files
 .DS_Store

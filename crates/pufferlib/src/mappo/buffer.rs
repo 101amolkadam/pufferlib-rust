@@ -53,4 +53,8 @@ impl AgentBuffer {
     pub fn len(&self) -> usize {
         self.observations.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.observations.is_empty()
+    }
 }

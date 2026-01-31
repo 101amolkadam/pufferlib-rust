@@ -122,9 +122,12 @@ Requires **LibTorch** and **Protocol Buffers**.
 
 **LibTorch Setup (Windows/Linux/Mac):**
 ```powershell
-# Windows
+# Windows: Uses VERSIONS file for configuration
 .\setup_libtorch.ps1
 ```
+
+> [!IMPORTANT]
+> LibTorch and CUDA versions are managed centrally in the `VERSIONS` file at the project root. Update this file to change the target environment for both local development and CI.
 
 **Protocol Buffers (Required for RPC/gRPC):**
 - **Windows**: `winget install -e --id ProtocolBuffers.Protoc`

@@ -76,7 +76,7 @@ impl<P: SafePolicy + HasVarStore, V: VecEnvBackend> SafeTrainer<P, V> {
         let lagrangian = vs_lagrange.root().var(
             "lambda",
             &[],
-            nn::Init::Const(safe_config.initial_lagrangian as f64),
+            nn::Init::Const(safe_config.initial_lagrangian),
         );
         let lagrangian_optimizer = nn::Adam::default()
             .build(&vs_lagrange, safe_config.lagrangian_lr)
@@ -293,7 +293,7 @@ impl<P: SafePolicy + HasVarStore, V: VecEnvBackend> SafeTrainer<P, V> {
 
         // Project back to non-negative
         tch::no_grad(|| {
-            let _ = self.lagrangian.copy_(&self.lagrangian.clamp_min(0.0));
+            self.lagrangian.copy_(&self.lagrangian.clamp_min(0.0));
         });
     }
 }

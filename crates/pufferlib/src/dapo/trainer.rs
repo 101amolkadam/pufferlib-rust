@@ -118,7 +118,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
 
         for buffer in &self.buffers {
             let mut returns = Vec::new();
-            let mut R = 0.0;
+            let mut r_total = 0.0;
 
             // Apply Length Penalty before return calculation
             let it = buffer
@@ -130,7 +130,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
 
             for ((&r, &d), &l) in it {
                 if d {
-                    R = 0.0;
+                    r_total = 0.0;
                 }
 
                 // DAPO: Reward Shaping with length penalty for reasoning tasks
@@ -142,8 +142,8 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
 
                 let shaped_reward = r - penalty;
 
-                R = shaped_reward + (self.config.gamma as f32) * R;
-                returns.push(R);
+                r_total = shaped_reward + (self.config.gamma as f32) * r_total;
+                returns.push(r_total);
             }
             returns.reverse();
 

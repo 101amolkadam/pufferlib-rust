@@ -129,13 +129,13 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
 
         for buffer in &self.buffers {
             let mut returns = Vec::new();
-            let mut R = 0.0;
+            let mut r_total = 0.0;
             for (r, d) in buffer.rewards.iter().zip(&buffer.dones).rev() {
                 if *d {
-                    R = 0.0;
+                    r_total = 0.0;
                 }
-                R = r + (self.config.gamma as f32) * R;
-                returns.push(R);
+                r_total = r + (self.config.gamma as f32) * r_total;
+                returns.push(r_total);
             }
             returns.reverse();
 

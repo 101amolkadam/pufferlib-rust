@@ -129,7 +129,7 @@ impl CheckpointManager {
         reward: f64,
     ) -> Result<Option<PathBuf>> {
         // Check if we should save this epoch
-        if epoch == 0 || epoch % self.config.save_every != 0 {
+        if epoch == 0 || !epoch.is_multiple_of(self.config.save_every) {
             return Ok(None);
         }
 

@@ -438,14 +438,14 @@ impl<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer> Trainer<P, V, 
                 let (i_reward, _, _) =
                     icm.compute_intrinsic_reward(&obs_tensor, &next_obs_tensor, &action);
                 let device = rewards.device();
-                rewards = rewards + i_reward.to_device(device) * self.config.icm_beta;
+                rewards += i_reward.to_device(device) * self.config.icm_beta;
             }
 
             // RND Intrinsic Reward
             if let Some(ref rnd) = self.rnd {
                 let (i_reward, _) = rnd.compute_intrinsic_reward(&obs_tensor);
                 let device = rewards.device();
-                rewards = rewards + i_reward.to_device(device) * self.config.rnd_beta;
+                rewards += i_reward.to_device(device) * self.config.rnd_beta;
             }
 
             self.mean_reward = result.rewards.iter().sum::<f32>() as f64 / self.num_envs as f64;

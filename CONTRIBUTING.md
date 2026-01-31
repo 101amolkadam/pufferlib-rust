@@ -1,35 +1,33 @@
 # Contributing to PufferLib Rust
 
-We love your input! We want to make contributing to PufferLib Rust as easy and transparent as possible.
+Thank you for your interest in contributing to PufferLib Rust!
 
-## 🧪 Development Process
+## Getting Started
 
-1. **Fork** the repo and create your branch from `main`.
-2. **Update** documentation if you add new features.
-3. **Check** your code with `cargo clippy` and `cargo fmt`.
-4. **Test** your changes with `cargo test --workspace`.
-5. **Issue** a pull request!
+1.  **Fork the repository** and clone it locally.
+2.  **Install dependencies**:
+    -   Rust (stable)
+    -   LibTorch (via `.\setup_libtorch.ps1` on Windows or following CI instructions for Linux)
+    -   Protocol Buffers (optional, required for RPC)
+3.  **Run tests**:
+    ```bash
+    cargo test --workspace --features torch
+    ```
 
-## 🌊 Porting Ocean Environments
-"Ocean" is our suite of ultra-fast first-party environments. If you want to port a C environment from the original PufferLib:
+## Development Workflow
 
-1. **Native FFI**: Use `bindgen` to generate Rust bindings for the environment's C header.
-2. **Trait Implementation**: Wrap the C state in a Rust struct and implement `PufferEnv`.
-3. **Zero-Copy**: ensure the `step` function writes observations directly into the provided `ndarray`.
+-   **Code Style**: We use standard `cargo fmt`. Please run it before submitting a PR.
+-   **Linting**: We aim for zero Clippy warnings. Run `cargo clippy --workspace --features torch -- -D warnings`.
+-   **Documentation**: If you add a new feature, please update `ARCHITECTURE.md` or provide a usage example in `README.md`.
 
-## 🛠️ Workflow Safety
-- **No Force Push**: Never use `git push --force`. Always `pull` and merge.
-- **Atomic Commits**: Small, single-purpose commits are preferred.
+## Project Structure
 
-## 📜 Coding Standards
+-   `crates/pufferlib`: Core logic (Spaces, Policies, Trainers).
+-   `crates/pufferlib-envs`: Standard RL environments.
+-   `crates/pufferlib-cli`: The `puffer` binary.
+-   `crates/pufferlib-python`: PyO3 bindings.
+-   `crates/pufferlib-bevy`: Bevy game engine integration.
 
-- Follow [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/).
-- Use `anyhow` or `thiserror` for error handling.
-- Document all public functions with doc comments.
+## Centralized Versioning
 
-## 🐞 Reporting Bugs
-
-Use GitHub issues to report bugs. Please include:
-- Your OS and Rust version.
-- A minimal reproducible example.
-- Expected vs. Actual behavior.
+The project uses a root `VERSIONS` file to manage LibTorch and CUDA versions across local scripts and GitHub Actions. Please update this file instead of hardcoding versions in CI or scripts.

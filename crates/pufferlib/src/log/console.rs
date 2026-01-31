@@ -6,6 +6,12 @@ use crate::types::{format, HashMap, String, Vec};
 /// Logger that prints metrics to stdout via tracing.
 pub struct ConsoleLogger;
 
+impl Default for ConsoleLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConsoleLogger {
     pub fn new() -> Self {
         Self

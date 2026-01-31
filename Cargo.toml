@@ -38,6 +38,8 @@ crossbeam-channel = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+bincode = "1.3"
+flate2 = "1.0"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
@@ -45,27 +47,42 @@ clap = { version = "4.5", features = ["derive"] }
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tensorboard-rs = "0.5"
 
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"
 
-# Pure Rust neural networks
+# Neural networks
+tch = "0.23"
+torch-sys = "0.23"
 candle-core = "0.8"
 candle-nn = "0.8"
 candle-transformers = "0.8"
+burn-core = { version = "0.13.0", default-features = false }
+burn-ndarray = { version = "0.13.0", default-features = false }
+luminal = "0.2"
+hf-hub = "0.3"
+ort = "2.0.0-rc.11"
+llm-chain = "0.13"
 
 # Python bindings
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"] }
 numpy = "0.22"
-tch = "0.23"
-
 
 # Utilities
 num-traits = "0.2"
 ordered-float = "4.5"
 smallvec = { version = "1.13", features = ["serde"] }
 indicatif = "0.17"
+puffin = "0.16"
+hashbrown = { version = "0.14", features = ["serde"] }
+
+# Development
+criterion = "0.5"
+tempfile = "3.10"
+assert_cmd = "2.0"
+predicates = "3.0"
 
 # Windows-specific system calls
 windows-sys = { version = "0.59", features = [
