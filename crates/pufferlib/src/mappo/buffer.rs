@@ -3,6 +3,7 @@
 use tch::Tensor;
 
 /// Buffer for a single agent's experience
+#[derive(Default)]
 pub struct AgentBuffer {
     pub observations: Vec<Tensor>,
     pub actions: Vec<Tensor>,
@@ -10,19 +11,6 @@ pub struct AgentBuffer {
     pub rewards: Vec<f32>,
     pub dones: Vec<bool>,
     pub values: Vec<Tensor>,
-}
-
-impl Default for AgentBuffer {
-    fn default() -> Self {
-        Self {
-            observations: Vec::new(),
-            actions: Vec::new(),
-            log_probs: Vec::new(),
-            rewards: Vec::new(),
-            dones: Vec::new(),
-            values: Vec::new(),
-        }
-    }
 }
 
 impl AgentBuffer {

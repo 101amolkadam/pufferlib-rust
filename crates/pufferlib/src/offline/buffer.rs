@@ -3,25 +3,13 @@
 use tch::{Device, Tensor};
 
 /// A single trajectory of experience.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Trajectory {
     pub observations: Vec<Vec<f32>>,
     pub actions: Vec<Vec<f32>>,
     pub rewards: Vec<f32>,
     pub returns_to_go: Vec<f32>,
     pub terminals: Vec<bool>,
-}
-
-impl Default for Trajectory {
-    fn default() -> Self {
-        Self {
-            observations: Vec::new(),
-            actions: Vec::new(),
-            rewards: Vec::new(),
-            returns_to_go: Vec::new(),
-            terminals: Vec::new(),
-        }
-    }
 }
 
 impl Trajectory {

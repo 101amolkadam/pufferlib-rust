@@ -4,18 +4,10 @@ use super::constitutional::ConstitutionalAI;
 use super::reward_model::RewardModel;
 
 /// Toolkit for training reward models from preferences
+#[derive(Default)]
 pub struct RLHFToolkit {
     pub reward_model: Option<RewardModel>,
     pub constitutional_ai: Option<ConstitutionalAI>,
-}
-
-impl Default for RLHFToolkit {
-    fn default() -> Self {
-        Self {
-            reward_model: None,
-            constitutional_ai: None,
-        }
-    }
 }
 
 impl RLHFToolkit {
