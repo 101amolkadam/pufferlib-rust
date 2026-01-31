@@ -27,7 +27,14 @@ if (Test-Path $LibTorchPath) {
 
 if (-not (Test-Path $LibTorchPath)) {
     Write-Host "Downloading LibTorch ($CudaVersion) from $LibTorchUrl..."
-    Invoke-WebRequest -Uri $LibTorchUrl -OutFile $ZipPath
+    try {
+        Invoke-WebRequest -Uri $LibTorchUrl -OutFile $ZipPath
+    } catch {
+        Write-Host "Stable path failed, trying test path..."
+        $LibTorchUrl = "https://download.pytorch.org/libtorch/test/$CudaVersion/libtorch-win-shared-with-deps-$LibTorchVersion%2B$CudaVersion.zip"
+        Write-Host "Downloading from: $LibTorchUrl"
+        Invoke-WebRequest -Uri $LibTorchUrl -OutFile $ZipPath
+    }
     
     Write-Host "Extracting LibTorch..."
     Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force

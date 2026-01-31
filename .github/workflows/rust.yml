@@ -22,7 +22,22 @@ jobs:
           CUDA_VERSION=$(grep CUDA_VERSION VERSIONS | cut -d'=' -f2)
           echo "LIBTORCH_VERSION=$LIBTORCH_VERSION" >> $GITHUB_ENV
           echo "CUDA_VERSION=$CUDA_VERSION" >> $GITHUB_ENV
-          wget -O libtorch.zip https://download.pytorch.org/libtorch/${CUDA_VERSION}/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2B${CUDA_VERSION}.zip
+          
+          # Try stable cxx11
+          URL="https://download.pytorch.org/libtorch/${CUDA_VERSION}/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2B${CUDA_VERSION}.zip"
+          echo "Trying stable cxx11: $URL"
+          if ! wget -O libtorch.zip "$URL"; then
+            # Try test cxx11
+            URL="https://download.pytorch.org/libtorch/test/${CUDA_VERSION}/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2B${CUDA_VERSION}.zip"
+            echo "Trying test cxx11: $URL"
+            if ! wget -O libtorch.zip "$URL"; then
+              # Try stable non-cxx11
+              URL="https://download.pytorch.org/libtorch/${CUDA_VERSION}/libtorch-shared-with-deps-${LIBTORCH_VERSION}%2B${CUDA_VERSION}.zip"
+              echo "Trying stable non-cxx11: $URL"
+              wget -O libtorch.zip "$URL"
+            fi
+          fi
+          
           unzip libtorch.zip
           echo "LIBTORCH=$GITHUB_WORKSPACE/libtorch" >> $GITHUB_ENV
           echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
