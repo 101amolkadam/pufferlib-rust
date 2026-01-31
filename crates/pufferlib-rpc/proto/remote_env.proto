@@ -24,4 +24,5 @@ message StepResponse {
   float reward = 2;
   bool terminated = 3;
   bool truncated = 4;
+  float cost = 5;
 }

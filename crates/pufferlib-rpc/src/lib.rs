@@ -85,6 +85,7 @@ impl PufferEnv for RemoteEnv {
             terminated: resp.terminated,
             truncated: resp.truncated,
             info: EnvInfo::default(),
+            cost: resp.cost,
         }
     }
 }

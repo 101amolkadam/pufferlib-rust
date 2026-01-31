@@ -144,6 +144,7 @@ impl PufferEnv for PufferBevyEnv {
             terminated: done,
             truncated: false,
             info: pufferlib::env::EnvInfo::default(),
+            cost: 0.0,
         }
     }
 }
