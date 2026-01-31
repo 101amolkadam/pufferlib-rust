@@ -1,7 +1,15 @@
 # Rust standard
 /target
-Cargo.lock
+**/target
 **/*.rs.bk
+
+# Audit and Logs
+audit_report*.md
+AUDIT.md
+build_err.txt
+
+# Tool specific
+.gemini/
 
 # IDEs
 .vscode/

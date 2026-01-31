@@ -44,8 +44,8 @@ pub use config::{ConstrainedPpoConfig, TrainerConfig};
 pub use curriculum::{Curriculum, SimpleCurriculum};
 #[cfg(feature = "torch")]
 pub use distributed::{
-    DistributedBackend, DistributedConfig, DistributedError, DistributedMetrics, DistributedTrainer,
-    ThreadDistributedBackend,
+    DistributedBackend, DistributedConfig, DistributedError, DistributedMetrics,
+    DistributedTrainer, ThreadDistributedBackend,
 };
 #[cfg(feature = "torch")]
 pub use ppo::{compute_gae, compute_vtrace, ppo_policy_loss, ppo_value_loss};

@@ -97,8 +97,8 @@ impl DecoderCNN {
     pub fn forward(&self, xs: &Tensor) -> Tensor {
         // Linear then reshape then ConvTranspose
         let x = xs.apply(&self.linear).reshape([-1, 256, 1, 1]); // Placeholder shape logic
-                                                                  // Need matching shapes for ConvTranspose to reach 64x64
-                                                                  // ... simplified for now
+                                                                 // Need matching shapes for ConvTranspose to reach 64x64
+                                                                 // ... simplified for now
         x.apply(&self.seq)
     }
 }
