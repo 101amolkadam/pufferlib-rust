@@ -12,6 +12,7 @@ pub struct ICM {
     encoder: nn::Sequential,
     forward_model: nn::Sequential,
     inverse_model: nn::Sequential,
+    #[allow(dead_code)]
     feature_size: i64,
 }
 
@@ -120,7 +121,9 @@ impl ICM {
 pub struct RND {
     predictor: nn::Sequential,
     target: nn::Sequential,
+    #[allow(dead_code)]
     obs_size: i64,
+    #[allow(dead_code)]
     out_size: i64,
 }
 

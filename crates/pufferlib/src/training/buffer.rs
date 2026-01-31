@@ -76,6 +76,7 @@ impl ExperienceBuffer {
     }
 
     /// Add a batch of experience
+    #[allow(clippy::too_many_arguments)]
     pub fn add(
         &mut self,
         observations: &Tensor,

@@ -97,14 +97,12 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
             // We assume self.policies matches self.config.num_agents if not shared,
             // or we reuse policies[0] if shared.
 
-            for i in 0..self.config.num_agents {
+            for (i, agent_obs) in obs.iter().enumerate().take(self.config.num_agents) {
                 let policy = if self.config.share_policy {
                     &self.policies[0]
                 } else {
                     &self.policies[i]
                 };
-
-                let agent_obs = &obs[i];
 
                 let state_none: Option<Vec<Tensor>> = None;
                 let (dist, _, _) = policy.forward(agent_obs, &state_none);
@@ -138,7 +136,7 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
                 .enumerate()
             {
                 let buf = &mut self.buffers[i];
-                if buf.len() > 0 {
+                if !buf.is_empty() {
                     let last_idx = buf.len() - 1;
                     buf.rewards[last_idx] = *reward;
                     buf.dones[last_idx] = *done;
@@ -166,7 +164,7 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
         let mut all_advantages = Vec::new();
         let mut all_returns = Vec::new();
 
-        for (_i, buffer) in self.buffers.iter().enumerate() {
+        for buffer in self.buffers.iter() {
             let rewards = Tensor::from_slice(&buffer.rewards).unsqueeze(1);
             let values = Tensor::stack(&buffer.values, 0); // [Steps, 1]
             let dones_vec: Vec<f32> = buffer

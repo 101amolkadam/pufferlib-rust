@@ -63,6 +63,7 @@ impl EncoderCNN {
 pub struct DecoderCNN {
     linear: nn::Linear,
     seq: nn::Sequential,
+    #[allow(dead_code)]
     out_shape: [i64; 3], // C, H, W
 }
 
@@ -95,7 +96,7 @@ impl DecoderCNN {
 
     pub fn forward(&self, xs: &Tensor) -> Tensor {
         // Linear then reshape then ConvTranspose
-        let x = xs.apply(&self.linear).reshape(&[-1, 256, 1, 1]); // Placeholder shape logic
+        let x = xs.apply(&self.linear).reshape([-1, 256, 1, 1]); // Placeholder shape logic
                                                                   // Need matching shapes for ConvTranspose to reach 64x64
                                                                   // ... simplified for now
         x.apply(&self.seq)
@@ -106,6 +107,7 @@ impl DecoderCNN {
 #[derive(Debug)]
 pub struct DenseHead {
     seq: nn::Sequential,
+    #[allow(dead_code)]
     out_dim: i64,
 }
 
@@ -150,8 +152,8 @@ impl LayerNorm2d {
 impl nn::Module for LayerNorm2d {
     fn forward(&self, xs: &Tensor) -> Tensor {
         // [B, C, H, W] -> permute -> LN -> permute
-        xs.permute(&[0, 2, 3, 1])
+        xs.permute([0, 2, 3, 1])
             .apply(&self.ln)
-            .permute(&[0, 3, 1, 2])
+            .permute([0, 3, 1, 2])
     }
 }

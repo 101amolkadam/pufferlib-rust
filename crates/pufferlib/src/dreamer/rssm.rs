@@ -75,9 +75,9 @@ impl RSSM {
 
     /// Compute initial state
     pub fn initial_state(&self, batch_size: i64, device: Device) -> State {
-        let deter = Tensor::zeros(&[batch_size, self.config.deter_size], (Kind::Float, device));
+        let deter = Tensor::zeros([batch_size, self.config.deter_size], (Kind::Float, device));
         let stoch = Tensor::zeros(
-            &[
+            [
                 batch_size,
                 self.config.stoch_size,
                 self.config.stoch_discrete,
@@ -85,7 +85,7 @@ impl RSSM {
             (Kind::Float, device),
         );
         let logits = Tensor::zeros(
-            &[
+            [
                 batch_size,
                 self.config.stoch_size,
                 self.config.stoch_discrete,
@@ -142,7 +142,7 @@ impl RSSM {
 
     fn step_prior(&self, deter: &Tensor) -> State {
         let logits = deter.apply(&self.fc_prior);
-        let logits = logits.reshape(&[-1, self.config.stoch_size, self.config.stoch_discrete]);
+        let logits = logits.reshape([-1, self.config.stoch_size, self.config.stoch_discrete]);
         let stoch = self.sample_stoch(&logits);
         State {
             deter: deter.shallow_clone(),
@@ -154,7 +154,7 @@ impl RSSM {
     fn step_posterior(&self, deter: &Tensor, embed: &Tensor) -> State {
         let input = Tensor::cat(&[deter, embed], 1);
         let logits = input.apply(&self.fc_post);
-        let logits = logits.reshape(&[-1, self.config.stoch_size, self.config.stoch_discrete]);
+        let logits = logits.reshape([-1, self.config.stoch_size, self.config.stoch_discrete]);
         let stoch = self.sample_stoch(&logits);
         State {
             deter: deter.shallow_clone(),

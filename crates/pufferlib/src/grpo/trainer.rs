@@ -76,9 +76,7 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
             // Get actions
             let mut action_tensors = Vec::with_capacity(num_agents);
 
-            for i in 0..num_agents {
-                let agent_obs = &obs[i]; // obs[i] is Tensor
-
+            for (i, agent_obs) in obs.iter().enumerate().take(num_agents) {
                 // Forward policy
                 let (dist, _, _) = self.policy.forward(agent_obs, &None);
 
@@ -183,7 +181,7 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
                                                           // stack(_, 1) -> [T, N]
         let rewards_grouped = returns_t_n
             .flatten(0, 1) // [T*N]
-            .reshape(&[-1, group_size]); // [M, G]
+            .reshape([-1, group_size]); // [M, G]
 
         let mean = rewards_grouped.mean_dim(Some(&[1i64][..]), true, Kind::Float);
         let std = rewards_grouped.std_dim(Some(&[1i64][..]), true, true);

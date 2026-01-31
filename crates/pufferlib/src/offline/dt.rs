@@ -135,7 +135,7 @@ impl DecisionTransformer {
         // 1. Embeddings
         let time_embeddings = timesteps.flatten(0, 1).apply(&self.embed_timestep);
         let time_embeddings =
-            time_embeddings.reshape(&[batch_size, seq_len, self.config.hidden_size]);
+            time_embeddings.reshape([batch_size, seq_len, self.config.hidden_size]);
 
         let state_embeddings = states.apply(&self.embed_state) + &time_embeddings;
         let action_embeddings = actions.apply(&self.embed_action) + &time_embeddings;

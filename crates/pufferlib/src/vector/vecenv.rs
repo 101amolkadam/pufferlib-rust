@@ -83,7 +83,7 @@ impl ObservationBatch {
         {
             let tensor = unsafe {
                 Tensor::f_from_blob(
-                    buffer.as_ptr() as *mut f32 as *mut _,
+                    buffer.as_ptr() as *mut _,
                     shape,
                     &[],
                     Kind::Float,

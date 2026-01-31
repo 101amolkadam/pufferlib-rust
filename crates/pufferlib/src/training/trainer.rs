@@ -98,6 +98,7 @@ pub struct Trainer<P: Policy + HasVarStore, V: VecEnvBackend, O: PuffOptimizer =
     /// Gradient scaler for AMP
     pub scaler: Option<GradScaler>,
     last_rollout_time: f64,
+    #[allow(dead_code)]
     last_update_time: f64,
     last_env_time: f64,
 }

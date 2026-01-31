@@ -28,8 +28,8 @@ impl<'a> MPCPlanner<'a> {
 
         // Initialize action distribution (mean and std)
         // Shape: [Horizon, ActionDim]
-        let mut mean = Tensor::zeros(&[horizon, action_dim], (Kind::Float, device));
-        let mut std = Tensor::ones(&[horizon, action_dim], (Kind::Float, device)) * 0.5;
+        let mut mean = Tensor::zeros([horizon, action_dim], (Kind::Float, device));
+        let mut std = Tensor::ones([horizon, action_dim], (Kind::Float, device)) * 0.5;
 
         for _ in 0..self.config.mpc_iterations {
             // 1. Sample action sequences
@@ -59,7 +59,7 @@ impl<'a> MPCPlanner<'a> {
     /// Sample multiple action sequences from the current mean and std.
     fn sample_actions(&self, mean: &Tensor, std: &Tensor, samples: i64) -> Tensor {
         let (horizon, dim) = mean.size2().unwrap();
-        let noise = Tensor::randn(&[samples, horizon, dim], (Kind::Float, mean.device()));
+        let noise = Tensor::randn([samples, horizon, dim], (Kind::Float, mean.device()));
         // Actions are sampled in unbounded space then squashed by Tanh during evaluation/return
         mean.unsqueeze(0) + &noise * std.unsqueeze(0)
     }
@@ -72,16 +72,16 @@ impl<'a> MPCPlanner<'a> {
         let squashed_actions = actions.tanh();
 
         // Prepare initial state batch by repeating the current state
-        let deter = state.deter.repeat(&[samples, 1]);
-        let stoch = state.stoch.repeat(&[samples, 1, 1]);
-        let logits = state.logits.repeat(&[samples, 1, 1]);
+        let deter = state.deter.repeat([samples, 1]);
+        let stoch = state.stoch.repeat([samples, 1, 1]);
+        let logits = state.logits.repeat([samples, 1, 1]);
         let mut state_batch = State {
             deter,
             stoch,
             logits,
         };
 
-        let mut total_rewards = Tensor::zeros(&[samples], (Kind::Float, state.deter.device()));
+        let mut total_rewards = Tensor::zeros([samples], (Kind::Float, state.deter.device()));
 
         no_grad(|| {
             for t in 0..horizon {

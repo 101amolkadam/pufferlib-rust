@@ -12,8 +12,8 @@ pub struct Trajectory {
     pub terminals: Vec<bool>,
 }
 
-impl Trajectory {
-    pub fn new() -> Self {
+impl Default for Trajectory {
+    fn default() -> Self {
         Self {
             observations: Vec::new(),
             actions: Vec::new(),
@@ -21,6 +21,12 @@ impl Trajectory {
             returns_to_go: Vec::new(),
             terminals: Vec::new(),
         }
+    }
+}
+
+impl Trajectory {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn len(&self) -> usize {
@@ -126,10 +132,10 @@ impl SequenceBuffer {
             let act_flat: Vec<f32> = act_seq.into_iter().flatten().collect();
 
             batch_obs.push(
-                Tensor::from_slice(&obs_flat).reshape(&[self.context_len as i64, obs_dim as i64]),
+                Tensor::from_slice(&obs_flat).reshape([self.context_len as i64, obs_dim as i64]),
             );
             batch_act.push(
-                Tensor::from_slice(&act_flat).reshape(&[self.context_len as i64, act_dim as i64]),
+                Tensor::from_slice(&act_flat).reshape([self.context_len as i64, act_dim as i64]),
             );
             batch_ret.push(Tensor::from_slice(&ret_seq));
             batch_time.push(Tensor::from_slice(&time_seq));

@@ -9,12 +9,18 @@ pub struct RLHFToolkit {
     pub constitutional_ai: Option<ConstitutionalAI>,
 }
 
-impl RLHFToolkit {
-    pub fn new() -> Self {
+impl Default for RLHFToolkit {
+    fn default() -> Self {
         Self {
             reward_model: None,
             constitutional_ai: None,
         }
+    }
+}
+
+impl RLHFToolkit {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Train reward model from a batch of preferences

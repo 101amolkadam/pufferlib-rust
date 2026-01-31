@@ -9,6 +9,7 @@ pub struct DreamerTrainer {
     // World Model
     rssm: RSSM,
     encoder: EncoderCNN,
+    #[allow(dead_code)]
     decoder: DecoderCNN,
     reward_head: DenseHead,
     continue_head: DenseHead,
@@ -18,6 +19,7 @@ pub struct DreamerTrainer {
     critic: DenseHead, // Value function
 
     // Optims
+    #[allow(dead_code)]
     model_opt: nn::Optimizer,
     actor_opt: nn::Optimizer,
     value_opt: nn::Optimizer,
@@ -86,8 +88,8 @@ impl DreamerTrainer {
         // obs: [B, T, C, H, W]
         let s = obs.size();
         let (b, t, c, h, w) = (s[0], s[1], s[2], s[3], s[4]);
-        let obs_flat = obs.reshape(&[b * t, c, h, w]);
-        let embed = self.encoder.forward(&obs_flat).reshape(&[b, t, -1]);
+        let obs_flat = obs.reshape([b * t, c, h, w]);
+        let embed = self.encoder.forward(&obs_flat).reshape([b, t, -1]);
 
         // 2. RSSM Observe Rollout
         // Need to loop over T steps or use sequence processing

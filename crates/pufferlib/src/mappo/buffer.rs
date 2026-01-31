@@ -12,8 +12,8 @@ pub struct AgentBuffer {
     pub values: Vec<Tensor>,
 }
 
-impl AgentBuffer {
-    pub fn new() -> Self {
+impl Default for AgentBuffer {
+    fn default() -> Self {
         Self {
             observations: Vec::new(),
             actions: Vec::new(),
@@ -22,6 +22,12 @@ impl AgentBuffer {
             dones: Vec::new(),
             values: Vec::new(),
         }
+    }
+}
+
+impl AgentBuffer {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn add(

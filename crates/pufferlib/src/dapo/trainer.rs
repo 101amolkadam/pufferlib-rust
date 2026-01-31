@@ -71,8 +71,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
         for _ in 0..num_steps {
             let mut action_tensors = Vec::with_capacity(num_agents);
 
-            for i in 0..num_agents {
-                let agent_obs = &obs[i];
+            for (i, agent_obs) in obs.iter().enumerate().take(num_agents) {
                 let (dist, _, _) = self.policy.forward(agent_obs, &None);
 
                 let action_sample = dist.sample();
@@ -167,7 +166,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
         }
 
         let rewards_flat = returns_t_n.flatten(0, 1).slice(0, 0, actual_total, 1);
-        let rewards_grouped = rewards_flat.reshape(&[num_groups, group_size]); // [M, G]
+        let rewards_grouped = rewards_flat.reshape([num_groups, group_size]); // [M, G]
 
         // Dynamic Sampling: identify informative groups
         let mask = if self.config.dynamic_sampling {
@@ -175,7 +174,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
             let min_r = rewards_grouped.min_dim(1, true).0;
             (max_r - min_r).gt(1e-6).to_kind(Kind::Float)
         } else {
-            Tensor::ones(&[num_groups, 1], (Kind::Float, rewards_grouped.device()))
+            Tensor::ones([num_groups, 1], (Kind::Float, rewards_grouped.device()))
         };
 
         let mean = rewards_grouped.mean_dim(Some(&[1i64][..]), true, Kind::Float);
@@ -219,7 +218,7 @@ impl<P: Policy + HasVarStore> DapoTrainer<P> {
                 let ref_log_probs = ref_dist.log_prob(&action_sample).as_torch().shallow_clone();
                 (new_log_probs - ref_log_probs).mean(Kind::Float)
             } else {
-                Tensor::zeros(&[], (Kind::Float, obs_flat.device()))
+                Tensor::zeros([], (Kind::Float, obs_flat.device()))
             };
 
             let loss = &ppo_loss + self.config.kl_coef * &kl_loss;

@@ -141,7 +141,7 @@ impl DistributedBackend for ThreadDistributedBackend {
             let mut sum = tensor.shallow_clone();
             for i in 1..ws {
                 let grad = self.group.reduc_receivers[i].recv().unwrap();
-                sum = sum + grad.to_device(tensor.device());
+                sum += grad.to_device(tensor.device());
             }
             let avg = sum / (ws as f64);
 
