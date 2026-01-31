@@ -42,16 +42,30 @@ pub struct DapoConfig {
 impl Default for DapoConfig {
     fn default() -> Self {
         Self {
-            group_size: 4,
+            group_size: std::env::var("DAPO_GROUP_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(4),
             clip_coef_low: 0.2,
             clip_coef_high: 0.8, // "Clip-Higher" strategy
             kl_coef: 0.01,
-            learning_rate: 3e-4,
-            gamma: 0.99,
-            gae_lambda: 0.95,
+            learning_rate: std::env::var("DAPO_LEARNING_RATE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3e-4),
+            gamma: std::env::var("DAPO_GAMMA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.99),
+            gae_lambda: std::env::var("DAPO_GAE_LAMBDA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.95),
             update_epochs: 4,
             max_grad_norm: 0.5,
-            dynamic_sampling: true,
+            dynamic_sampling: std::env::var("DAPO_DYNAMIC_SAMPLING")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(true),
             length_penalty_coef: 0.001,
             target_max_length: 512,
         }

@@ -19,11 +19,26 @@ pub struct OfflineTrainerConfig {
 impl Default for OfflineTrainerConfig {
     fn default() -> Self {
         Self {
-            batch_size: 64,
-            learning_rate: 1e-4,
-            weight_decay: 1e-4,
-            max_epochs: 10,
-            steps_per_epoch: 100,
+            batch_size: std::env::var("OFFLINE_BATCH_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(64),
+            learning_rate: std::env::var("OFFLINE_LEARNING_RATE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1e-4),
+            weight_decay: std::env::var("OFFLINE_WEIGHT_DECAY")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1e-4),
+            max_epochs: std::env::var("OFFLINE_MAX_EPOCHS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(10),
+            steps_per_epoch: std::env::var("OFFLINE_STEPS_PER_EPOCH")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(100),
             device: Device::Cpu,
         }
     }

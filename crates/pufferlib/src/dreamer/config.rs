@@ -46,11 +46,26 @@ impl Default for DreamerConfig {
             stoch_discrete: 32, // 32x32 categorical
             deter_size: 512,
             embedding_size: 1024,
-            model_lr: 1e-4,
-            actor_lr: 8e-5,
-            value_lr: 8e-5,
-            gamma: 0.99,
-            lambda: 0.95,
+            model_lr: std::env::var("DREAMER_MODEL_LR")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1e-4),
+            actor_lr: std::env::var("DREAMER_ACTOR_LR")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8e-5),
+            value_lr: std::env::var("DREAMER_VALUE_LR")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8e-5),
+            gamma: std::env::var("DREAMER_GAMMA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.99),
+            lambda: std::env::var("DREAMER_LAMBDA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.95),
             kl_scale: 1.0,
             free_nats: 1.0,
             horizon: 15,

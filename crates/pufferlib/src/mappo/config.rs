@@ -37,9 +37,16 @@ pub struct MappoConfig {
 impl Default for MappoConfig {
     fn default() -> Self {
         Self {
-            num_agents: 2,
-            share_policy: true,
-            use_global_state: true,
+            num_agents: std::env::var("MAPPO_NUM_AGENTS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(2),
+            share_policy: std::env::var("MAPPO_SHARE_POLICY")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(true),
+            use_global_state: std::env::var("MAPPO_USE_GLOBAL_STATE")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(true),
             obs_dim: 16,
             global_state_dim: 32,
             action_dim: 5,
@@ -47,11 +54,20 @@ impl Default for MappoConfig {
             max_grad_norm: 0.5,
             vf_coef: 0.5,
             ent_coef: 0.01,
-            gamma: 0.99,
-            gae_lambda: 0.95,
+            gamma: std::env::var("MAPPO_GAMMA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.99),
+            gae_lambda: std::env::var("MAPPO_GAE_LAMBDA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.95),
             update_epochs: 10,
             minibatch_size: Some(256),
-            learning_rate: 3e-4,
+            learning_rate: std::env::var("MAPPO_LEARNING_RATE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3e-4),
         }
     }
 }

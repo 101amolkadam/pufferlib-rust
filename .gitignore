@@ -10,8 +10,23 @@ Cargo.lock
 
 # Project specific
 /libtorch
+/checkpoints
 /checkpoints_test
 /data
+
+# Python build artifacts and environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+*.dll
+*.dylib
+.venv/
+venv/
+ENV/
+env/
+.python-version
 
 # Logs and Debug
 *.log

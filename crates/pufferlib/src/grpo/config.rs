@@ -30,12 +30,24 @@ pub struct GrpoConfig {
 impl Default for GrpoConfig {
     fn default() -> Self {
         Self {
-            group_size: 4,
+            group_size: std::env::var("GRPO_GROUP_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(4),
             clip_coef: 0.2,
             kl_coef: 0.01,
-            learning_rate: 3e-4,
-            gamma: 0.99,
-            gae_lambda: 0.95,
+            learning_rate: std::env::var("GRPO_LEARNING_RATE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3e-4),
+            gamma: std::env::var("GRPO_GAMMA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.99),
+            gae_lambda: std::env::var("GRPO_GAE_LAMBDA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.95),
             update_epochs: 4,
             max_grad_norm: 0.5,
         }
