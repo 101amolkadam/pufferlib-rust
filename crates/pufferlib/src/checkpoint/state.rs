@@ -1,6 +1,6 @@
 //! Checkpoint state and trait definitions.
 
-use crate::types::{format, vec, String, ToString, Vec};
+use crate::types::{format, String, ToString, Vec};
 use crate::Result;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 //! Distributed training utilities using local threads and channels.
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::sync::{Arc, Barrier};
-use tch::{Kind, Tensor};
+use tch::Tensor;
 
 /// Distributed training configuration
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -25,9 +25,12 @@ impl Default for DistributedConfig {
         Self {
             world_size: 1,
             rank: 0,
-            master_addr: "localhost".to_string(),
-            master_port: 29500,
-            backend: "local".to_string(),
+            master_addr: std::env::var("MASTER_ADDR").unwrap_or_else(|_| "localhost".to_string()),
+            master_port: std::env::var("MASTER_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(29500),
+            backend: std::env::var("DISTRIBUTED_BACKEND").unwrap_or_else(|_| "local".to_string()),
             gradient_accumulation_steps: 1,
         }
     }

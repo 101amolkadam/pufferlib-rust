@@ -2,7 +2,7 @@ use crate::dreamer::config::DreamerConfig;
 use crate::dreamer::models::{DecoderCNN, DenseHead, EncoderCNN};
 use crate::dreamer::rssm::{State, RSSM};
 use tch::nn::OptimizerConfig;
-use tch::{nn, Device, Kind, Tensor};
+use tch::{nn, Kind, Tensor};
 
 pub struct DreamerTrainer {
     config: DreamerConfig,
@@ -79,8 +79,8 @@ impl DreamerTrainer {
         &mut self,
         obs: &Tensor,
         actions: &Tensor,
-        rewards: &Tensor,
-        dones: &Tensor,
+        _rewards: &Tensor,
+        _dones: &Tensor,
     ) -> f64 {
         // 1. Embed Observations
         // obs: [B, T, C, H, W]
@@ -122,7 +122,7 @@ impl DreamerTrainer {
 
     /// Update Actor Critic (Behavior Learning) using imagined trajectories
     pub fn update_actor_critic(&mut self, start_state: State) -> f64 {
-        let (b, _deter_size) = start_state.deter.size2().unwrap();
+        let (_b, _deter_size) = start_state.deter.size2().unwrap();
 
         // 1. Imagine trajectories
         let mut states = Vec::new();
@@ -166,7 +166,14 @@ impl DreamerTrainer {
         let last_feat = current_state.get_features();
         let last_value = self.critic.forward(&last_feat);
 
-        let targets = compute_lambda_returns(&rewards, &values, &continues, &last_value, 0.95);
+        let targets = compute_lambda_returns(
+            &rewards,
+            &values,
+            &continues,
+            &last_value,
+            self.config.gamma,
+            self.config.lambda,
+        );
 
         // 4. Update Actor (Maximize reward + value target)
         self.actor_opt.zero_grad();
@@ -192,14 +199,12 @@ fn compute_lambda_returns(
     values: &Tensor,
     continues: &Tensor,
     bootstrap: &Tensor,
+    gamma: f64,
     lambda: f64,
 ) -> Tensor {
     let t = rewards.size()[0];
     let mut targets = Vec::with_capacity(t as usize);
     let mut next_val = bootstrap.shallow_clone();
-
-    // Default gamma
-    let gamma = 0.99;
 
     for i in (0..t).rev() {
         let r = rewards.get(i);

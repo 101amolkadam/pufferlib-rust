@@ -17,6 +17,12 @@ pub struct DapoConfig {
     /// Learning rate for optimizer.
     pub learning_rate: f64,
 
+    /// Discount factor (gamma).
+    pub gamma: f64,
+
+    /// GAE lambda.
+    pub gae_lambda: f64,
+
     /// Number of update epochs per rollout.
     pub update_epochs: usize,
 
@@ -41,6 +47,8 @@ impl Default for DapoConfig {
             clip_coef_high: 0.8, // "Clip-Higher" strategy
             kl_coef: 0.01,
             learning_rate: 3e-4,
+            gamma: 0.99,
+            gae_lambda: 0.95,
             update_epochs: 4,
             max_grad_norm: 0.5,
             dynamic_sampling: true,

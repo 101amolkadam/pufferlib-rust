@@ -1,8 +1,6 @@
 //! Exploration modules for RL agents.
 
 #[cfg(feature = "torch")]
-use crate::policy::MlpConfig;
-#[cfg(feature = "torch")]
 use tch::{nn, nn::Module, Kind, Tensor};
 
 /// Intrinsic Curiosity Module (ICM)
@@ -219,7 +217,7 @@ impl HER {
         observations: &mut [ndarray::ArrayD<f32>],
         _actions: &[ndarray::ArrayD<f32>],
         rewards: &mut [f32],
-        goals: &[ndarray::ArrayD<f32>],
+        _goals: &[ndarray::ArrayD<f32>],
     ) {
         if observations.is_empty() {
             return;

@@ -17,6 +17,12 @@ pub struct DreamerConfig {
     pub actor_lr: f64,
     pub value_lr: f64,
 
+    /// Discount factor (gamma).
+    pub gamma: f64,
+
+    /// GAE lambda (for returns).
+    pub lambda: f64,
+
     /// KL loss scale factor.
     pub kl_scale: f64,
     /// Free nats (minimum KL).
@@ -43,6 +49,8 @@ impl Default for DreamerConfig {
             model_lr: 1e-4,
             actor_lr: 8e-5,
             value_lr: 8e-5,
+            gamma: 0.99,
+            lambda: 0.95,
             kl_scale: 1.0,
             free_nats: 1.0,
             horizon: 15,

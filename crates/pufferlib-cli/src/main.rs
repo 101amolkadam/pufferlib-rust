@@ -55,6 +55,10 @@ enum Commands {
         /// Curriculum type (simple)
         #[arg(long)]
         curriculum: Option<String>,
+
+        /// Data directory for checkpoints
+        #[arg(long)]
+        data_dir: Option<String>,
     },
 
     /// Evaluate an agent (random policy without --features torch)
@@ -129,6 +133,7 @@ fn main() -> Result<()> {
             policy: _policy,
             resume: _resume,
             curriculum: _curriculum,
+            data_dir: _data_dir,
         } => {
             #[cfg(feature = "torch")]
             {
@@ -140,6 +145,7 @@ fn main() -> Result<()> {
                     &_policy,
                     _resume,
                     _curriculum,
+                    _data_dir,
                 )?;
             }
             #[cfg(not(feature = "torch"))]
@@ -201,6 +207,7 @@ fn train(
     policy_type: &str,
     resume: Option<String>,
     curriculum: Option<String>,
+    data_dir: Option<String>,
 ) -> Result<()> {
     use pufferlib::policy::{LstmPolicy, MlpConfig, MlpPolicy};
     use pufferlib::spaces::Space;
@@ -212,6 +219,7 @@ fn train(
         lr,
         num_envs,
         policy = policy_type,
+        data_dir = ?data_dir,
         "Starting training"
     );
 
@@ -224,11 +232,15 @@ fn train(
     };
 
     // Helper for setup
-    let trainer_config = pufferlib::training::TrainerConfig {
+    let mut trainer_config = pufferlib::training::TrainerConfig {
         total_timesteps: timesteps,
         learning_rate: lr,
         ..Default::default()
     };
+
+    if let Some(dir) = data_dir {
+        trainer_config.data_dir = dir;
+    }
 
     match env_name {
         "bandit" => {
@@ -351,10 +363,11 @@ where
     B: pufferlib::vector::VecEnvBackend + 'static,
     P: pufferlib::policy::Policy + pufferlib::policy::HasVarStore + 'static,
 {
-    let mut trainer =
-        pufferlib::training::Trainer::<P, B, pufferlib::training::optimizer::TorchOptimizer>::new(
-            envs, policy, config, device,
-        );
+    let mut trainer = pufferlib::training::Trainer::<
+        P,
+        pufferlib::vector::VecEnv<B>,
+        pufferlib::training::optimizer::TorchOptimizer,
+    >::new(envs, policy, config, device);
 
     // Apply curriculum if requested
     if let Some(c_type) = curriculum {
@@ -611,7 +624,11 @@ fn autotune(_env_name: &str, num_trials: usize, steps_per_trial: u64) -> Result<
             ..Default::default()
         };
 
-        let mut trainer = pufferlib::training::Trainer::new(envs, policy, trainer_config, device);
+        let mut trainer = pufferlib::training::Trainer::<
+            _,
+            _,
+            pufferlib::training::optimizer::TorchOptimizer,
+        >::new(envs, policy, trainer_config, device);
         trainer.trial_id = Some(trial_id);
 
         if let Err(e) = trainer.train() {
@@ -647,7 +664,9 @@ fn bench(env_name: &str, num_envs: usize, duration_secs: u64) -> Result<()> {
     let timesteps = 100_000 * duration_secs;
 
     // We reuse train pipeline
-    train(env_name, timesteps, 0.0003, num_envs, "mlp", None, None)?;
+    train(
+        env_name, timesteps, 0.0003, num_envs, "mlp", None, None, None,
+    )?;
 
     Ok(())
 }

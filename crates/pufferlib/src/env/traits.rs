@@ -1,7 +1,7 @@
 //! Core environment trait definitions.
 
 use crate::spaces::DynSpace;
-use crate::types::{Box, HashMap, String, ToString, Vec};
+use crate::types::{HashMap, String, ToString, Vec};
 use ndarray::ArrayD;
 
 /// Information returned from environment steps

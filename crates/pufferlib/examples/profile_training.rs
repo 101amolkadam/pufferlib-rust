@@ -1,15 +1,15 @@
-use pufferlib::policy::MlpPolicy;
+use pufferlib::policy::{MlpConfig, MlpPolicy};
 use pufferlib::prelude::*;
 use pufferlib::training::{Trainer, TrainerConfig};
-use pufferlib::vector::{AsyncVecEnv, Parallel};
+use pufferlib::vector::{Parallel, VecEnv};
 use pufferlib_envs::CartPole;
 use tch::Device;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Initializing profiling script...");
 
     let num_envs = 64;
-    let device = if Device::cuda_is_available() {
+    let device = if tch::utils::has_cuda() {
         Device::Cuda(0)
     } else {
         Device::Cpu
@@ -18,45 +18,33 @@ fn main() -> anyhow::Result<()> {
     println!("Profiling with {} environments on {:?}", num_envs, device);
 
     // Create environments - use Parallel::new with a closure
-    let backend = Parallel::new(|| CartPole::new(), num_envs);
-    let async_backend = AsyncVecEnv::new(backend);
-    let vecenv = VecEnv::new(async_backend, VecEnvConfig::default());
+    let vecenv = VecEnv::from_backend(Parallel::new(|| CartPole::new(), num_envs));
 
-    let obs_space = vecenv.observation_space();
-    let action_space = vecenv.action_space();
+    let obs_size = vecenv.observation_space().shape()[0] as i64;
+    let num_actions = 2i64; // CartPole
 
-    // Create policy - MLP policy takes 3 arguments: &obs, &act, device
-    let policy = MlpPolicy::new(&obs_space, &action_space, device);
+    // Create policy
+    let config = MlpConfig::default();
+    let policy = MlpPolicy::new(obs_size, num_actions, false, config, device);
 
     // Trainer configuration
-    let config = TrainerConfig::default()
-        .with_timesteps(1_000_000)
-        .with_lr(3e-4);
-
-    let mut config = config;
+    let mut config = TrainerConfig::default();
+    config.total_timesteps = 1_000_000;
+    config.learning_rate = 3e-4;
     config.device = device;
-    config.use_amp = true;
+    config.use_amp = false; // Disable AMP for CPU profiling if needed
     config.batch_size = 16384;
     config.num_minibatches = 4;
     config.update_epochs = 4;
 
-    // Trainer::new takes 4 arguments: vecenv, policy, config, device
-    let mut trainer = Trainer::new(vecenv, policy, config, device);
+    // Trainer::new
+    let mut trainer = Trainer::<_, _, pufferlib::training::optimizer::TorchOptimizer>::new(
+        vecenv, policy, config, device,
+    );
 
     println!("--- Starting Profiling Run (5 epochs) ---");
-    for i in 0..5 {
-        let (obs, _) = trainer.vecenv.reset(None);
-        trainer.collect_rollout(&obs);
-        let metrics = trainer.update();
+    trainer.train()?; // Run full training or just steps
 
-        println!("Epoch {}: SPS: {:.2}", i, metrics.sps);
-        println!(
-            "  Rollout Time: {:.4}s (Env: {:.4}s)",
-            metrics.rollout_time, metrics.env_time
-        );
-        println!("  Update Time:  {:.4}s", metrics.update_time);
-        println!("  Total Reward: {:.2}", metrics.reward);
-    }
     println!("--- Profiling Complete ---");
 
     Ok(())

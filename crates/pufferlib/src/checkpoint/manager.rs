@@ -3,7 +3,7 @@
 use super::state::Checkpointable;
 #[cfg(feature = "std")]
 /// Checkpoint manager for automatic rotation and best model tracking.
-use crate::{PufferError, Result};
+use crate::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -25,7 +25,10 @@ pub struct CheckpointConfig {
 impl Default for CheckpointConfig {
     fn default() -> Self {
         Self {
-            checkpoint_dir: PathBuf::from("checkpoints"),
+            checkpoint_dir: PathBuf::from(
+                std::env::var("PUFFER_CHECKPOINT_DIR")
+                    .unwrap_or_else(|_| "checkpoints".to_string()),
+            ),
             save_every: 10,
             keep_last: 5,
             save_best: true,

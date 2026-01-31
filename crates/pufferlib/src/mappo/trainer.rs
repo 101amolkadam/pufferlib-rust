@@ -4,7 +4,7 @@ use super::buffer::AgentBuffer;
 use super::config::MappoConfig;
 use super::critic::CentralizedCritic;
 use super::env::MultiAgentEnv;
-use crate::policy::{Distribution, HasVarStore, Policy};
+use crate::policy::{HasVarStore, Policy};
 use crate::training::{compute_gae, ppo_policy_loss, ppo_value_loss};
 use tch::nn::OptimizerConfig;
 use tch::{nn, Kind, Tensor};
@@ -166,7 +166,7 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
         let mut all_advantages = Vec::new();
         let mut all_returns = Vec::new();
 
-        for (i, buffer) in self.buffers.iter().enumerate() {
+        for (_i, buffer) in self.buffers.iter().enumerate() {
             let rewards = Tensor::from_slice(&buffer.rewards).unsqueeze(1);
             let values = Tensor::stack(&buffer.values, 0); // [Steps, 1]
             let dones_vec: Vec<f32> = buffer
@@ -204,7 +204,7 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
         }
 
         // PPO epochs
-        for epoch in 0..self.config.update_epochs {
+        for _epoch in 0..self.config.update_epochs {
             // Zero gradients once per epoch
             for opt in &mut self.policy_optimizers {
                 opt.zero_grad();
@@ -267,7 +267,7 @@ impl<P: Policy + HasVarStore> MappoTrainer<P> {
                 );
 
                 // Total loss for this agent
-                let agent_loss = &policy_loss + self.config.vf_coef * &value_loss
+                let _agent_loss = &policy_loss + self.config.vf_coef * &value_loss
                     - self.config.ent_coef * entropy.mean(Kind::Float);
 
                 total_policy_loss += policy_loss.double_value(&[]);

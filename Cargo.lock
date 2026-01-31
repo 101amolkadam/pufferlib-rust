@@ -4899,6 +4899,7 @@ dependencies = [
  "js-sys",
  "ndarray 0.16.1",
  "pufferlib",
+ "pufferlib-envs",
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",

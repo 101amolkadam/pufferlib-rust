@@ -14,8 +14,6 @@ PufferLib Rust is the high-bandwidth link between complex simulations and neural
 ## 📖 Table of Contents
 - [🔥 Features](#-features)
 - [🏗️ Architecture](#️-architecture)
-- [🏗️ Why Rust for RL?](#️-why-rust-for-rl)
-- [🏗️ Architecture](#️-architecture)
 - [🚀 Getting Started](#-getting-started)
 - [🛠️ Detailed Usage](#️-detailed-usage)
 - [📊 Performance & Benchmarking](#-performance--benchmarking)
@@ -34,6 +32,7 @@ While Python is the standard for RL research, it suffers from several bottleneck
 - **Memory Safety**: Our Emulation Layer uses Rust's ownership system to ensure zero-copy data flow from simulation to neural network, eliminating the large-scale "pickling" overhead common in process-based vectorization.
 
 ---
+
 ## 🔥 Features
 
 | Feature | Description | Status |

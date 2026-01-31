@@ -1,6 +1,5 @@
 //! Trainer configuration.
 
-use crate::spaces::Space;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "torch")]
 use tch::Device;
@@ -175,17 +174,21 @@ impl Default for TrainerConfig {
             min_lr_ratio: 0.0,
 
             checkpoint_interval: 100,
-            data_dir: "checkpoints".to_string(),
+            data_dir: std::env::var("PUFFER_DATA_DIR")
+                .unwrap_or_else(|_| "checkpoints".to_string()),
 
             self_play_enabled: false,
             self_play_learner_ratio: 1.0,
             self_play_snapshot_interval: 100,
 
-            wandb_enabled: false,
-            wandb_project: "pufferlib".to_string(),
-            wandb_run_name: "ppo".to_string(),
-            wandb_entity: "".to_string(),
-            wandb_group: "".to_string(),
+            wandb_enabled: std::env::var("WANDB_ENABLED")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false),
+            wandb_project: std::env::var("WANDB_PROJECT")
+                .unwrap_or_else(|_| "pufferlib".to_string()),
+            wandb_run_name: std::env::var("WANDB_RUN_NAME").unwrap_or_else(|_| "ppo".to_string()),
+            wandb_entity: std::env::var("WANDB_ENTITY").unwrap_or_default(),
+            wandb_group: std::env::var("WANDB_GROUP").unwrap_or_default(),
 
             use_amp: false,
             amp_initial_scale: 65536.0,

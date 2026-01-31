@@ -175,7 +175,7 @@ impl RSSM {
 
         // Hard one-hot (argmax)
         let max_idx = soft.argmax(-1, false);
-        let hard = max_idx.one_hot(self.config.stoch_discrete);
+        let _hard = max_idx.one_hot(self.config.stoch_discrete);
         // one_hot returns Long, need Float?
         // We need to cast hard to match soft type
 

@@ -1,11 +1,11 @@
 //! Offline trainer for Decision Transformer.
 
 use super::buffer::SequenceBuffer;
-use super::dt::{DecisionTransformer, DecisionTransformerConfig};
+use super::dt::DecisionTransformer;
 use crate::log::MetricLogger;
 use indicatif::{ProgressBar, ProgressStyle};
 use tch::nn::OptimizerConfig;
-use tch::{nn, Device, Tensor};
+use tch::{nn, Device};
 
 pub struct OfflineTrainerConfig {
     pub batch_size: usize,

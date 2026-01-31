@@ -1,17 +1,28 @@
 //! WebAssembly bindings for PufferLib.
 
+use ndarray::{ArrayD, IxDyn};
+use pufferlib::env::PufferEnv;
+use pufferlib_envs::CartPole;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct PufferWasmEnv {
-    // Note: We can't store Box<dyn PufferEnv> directly in a #[wasm_bindgen] struct
-    // if we want to expose it to JS easily. We'll use a concrete type or a wrapper.
-    // For now, this is a placeholder for the WASM environment bridge.
+    env: CartPole,
 }
 
-impl Default for PufferWasmEnv {
-    fn default() -> Self {
-        Self::new()
+#[wasm_bindgen]
+pub struct StepResult {
+    pub reward: f32,
+    pub terminated: bool,
+    pub truncated: bool,
+    observation: Vec<f32>,
+}
+
+#[wasm_bindgen]
+impl StepResult {
+    #[wasm_bindgen(getter)]
+    pub fn observation(&self) -> Vec<f32> {
+        self.observation.clone()
     }
 }
 
@@ -19,18 +30,37 @@ impl Default for PufferWasmEnv {
 impl PufferWasmEnv {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self {}
+        Self {
+            env: CartPole::new(),
+        }
     }
 
     /// Reset the environment and return observations as a flat Float32Array
-    pub fn reset(&mut self, _seed: Option<u64>) -> Vec<f32> {
-        // Placeholder for actual reset logic
-        vec![0.0; 1]
+    pub fn reset(&mut self, seed: Option<u64>) -> Vec<f32> {
+        let (obs, _) = self.env.reset(seed);
+        obs.as_slice().unwrap().to_vec()
     }
 
-    /// Step the environment and return rewards/done
-    pub fn step(&mut self, _action: Vec<f32>) -> JsValue {
-        // Placeholder for actual step logic
-        JsValue::from_f64(0.0)
+    /// Step the environment and return a result object
+    pub fn step(&mut self, action: f32) -> StepResult {
+        let action_array = ArrayD::from_elem(IxDyn(&[1]), action);
+        let result = self.env.step(&action_array);
+
+        StepResult {
+            reward: result.reward,
+            terminated: result.terminated,
+            truncated: result.truncated,
+            observation: result.observation.as_slice().unwrap().to_vec(),
+        }
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.env.is_done()
+    }
+}
+
+impl Default for PufferWasmEnv {
+    fn default() -> Self {
+        Self::new()
     }
 }

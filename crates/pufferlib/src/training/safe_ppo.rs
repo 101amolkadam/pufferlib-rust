@@ -1,12 +1,10 @@
 //! Safe RL (Constrained PPO) trainer.
 
-use crate::policy::{Distribution, DistributionSample, HasVarStore, SafePolicy};
+use crate::policy::{DistributionSample, HasVarStore, SafePolicy};
 use crate::spaces::Space;
 use crate::training::buffer::ExperienceBuffer;
 use crate::training::config::{ConstrainedPpoConfig, TrainerConfig};
-use crate::training::ppo::{
-    kl_divergence, ppo_dual_clip_policy_loss, ppo_policy_loss, ppo_value_loss,
-};
+use crate::training::ppo::{ppo_policy_loss, ppo_value_loss};
 use crate::vector::{ObservationBatch, VecEnvBackend};
 use indicatif::{ProgressBar, ProgressStyle};
 use ndarray;
@@ -74,7 +72,7 @@ impl<P: SafePolicy + HasVarStore, V: VecEnvBackend> SafeTrainer<P, V> {
         let state = policy.initial_state(num_envs as i64);
 
         // Lagrangian multiplier
-        let mut vs_lagrange = nn::VarStore::new(Device::Cpu);
+        let vs_lagrange = nn::VarStore::new(Device::Cpu);
         let lagrangian = vs_lagrange.root().var(
             "lambda",
             &[],

@@ -2,7 +2,7 @@
 
 use crate::env::EnvInfo;
 use crate::spaces::DynSpace;
-use crate::types::{vec, Vec};
+use crate::types::Vec;
 use ndarray::Array2;
 #[cfg(feature = "torch")]
 use tch::{Device, Kind, Tensor};

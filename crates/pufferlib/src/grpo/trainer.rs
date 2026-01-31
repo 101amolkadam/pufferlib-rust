@@ -1,8 +1,8 @@
 use crate::grpo::config::GrpoConfig;
 use crate::mappo::MultiAgentEnv;
-use crate::policy::{Distribution, DistributionSample, HasVarStore, Policy};
+use crate::policy::{DistributionSample, HasVarStore, Policy};
 use tch::nn::OptimizerConfig;
-use tch::{nn, Device, Kind, Tensor};
+use tch::{nn, Kind, Tensor};
 
 /// Buffer to store rollout data for GRPO
 struct GrpoBuffer {
@@ -134,11 +134,7 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
                 if *d {
                     R = 0.0;
                 }
-                R = r + 0.99 * R; // Gamma hardcoded or from config? Missing in config.
-                                  // GrpoConfig usually has gamma? I didn't verify plan well enough.
-                                  // Assuming R = r (bandit) or full episode return for now?
-                                  // GRPO typically used for Generative tasks (Contextual Bandits), gamma=1 or 0 (immediate).
-                                  // But for RL, use gamma. I'll add gamma to config or assume 1.0.
+                R = r + (self.config.gamma as f32) * R;
                 returns.push(R);
             }
             returns.reverse();
@@ -155,9 +151,9 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
 
         // Let's stack [NumAgents, T].
         let flat_returns = Tensor::stack(&all_returns, 0).flatten(0, 1); // [N*T]
-        let flat_obs = Tensor::stack(&all_obs, 0).flatten(0, 1);
-        let flat_actions = Tensor::stack(&all_actions, 0).flatten(0, 1);
-        let flat_old_log_probs = Tensor::stack(&all_old_log_probs, 0).flatten(0, 1);
+        let _flat_obs = Tensor::stack(&all_obs, 0).flatten(0, 1);
+        let _flat_actions = Tensor::stack(&all_actions, 0).flatten(0, 1);
+        let _flat_old_log_probs = Tensor::stack(&all_old_log_probs, 0).flatten(0, 1);
 
         // Compute Advantages
         // We reshape to [NumGroups, GroupSize]
@@ -169,7 +165,7 @@ impl<P: Policy + HasVarStore + Clone> GrpoTrainer<P> {
         if total_items % group_size != 0 {
             // fallback or warning
         }
-        let num_groups = total_items / group_size;
+        let _num_groups = total_items / group_size;
 
         // Reshape [NumGroups, GroupSize]
         // Note: ensuring grouping makes sense (e.g. adjacent samples are group)

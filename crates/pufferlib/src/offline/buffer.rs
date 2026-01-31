@@ -1,6 +1,5 @@
 //! Sequence buffer for offline RL.
 
-use std::collections::VecDeque;
 use tch::{Device, Tensor};
 
 /// A single trajectory of experience.

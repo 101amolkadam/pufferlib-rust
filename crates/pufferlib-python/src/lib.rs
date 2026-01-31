@@ -88,15 +88,22 @@ struct PyMappoConfig {
 #[pymethods]
 impl PyMappoConfig {
     #[new]
-    fn new(num_agents: usize, obs_dim: i64, global_state_dim: i64) -> Self {
+    #[pyo3(signature = (num_agents, obs_dim, global_state_dim, gamma=0.99, gae_lambda=0.95))]
+    fn new(
+        num_agents: usize,
+        obs_dim: i64,
+        global_state_dim: i64,
+        gamma: f64,
+        gae_lambda: f64,
+    ) -> Self {
         Self {
             num_agents,
             obs_dim,
             global_state_dim,
             hidden_dim: 128,
             learning_rate: 1e-3,
-            gamma: 0.99,
-            gae_lambda: 0.95,
+            gamma,
+            gae_lambda,
             clip_coef: 0.2,
             update_epochs: 4,
             share_policy: true,

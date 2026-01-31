@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pufferlib = { path = "../pufferlib", default-features = false }
+pufferlib-envs = { path = "../pufferlib-envs" }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 serde = { workspace = true }

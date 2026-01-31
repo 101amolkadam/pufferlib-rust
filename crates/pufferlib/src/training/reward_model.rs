@@ -54,12 +54,12 @@ impl RewardModel {
         act_2: &Tensor,
         preferences: &Tensor,
     ) -> Tensor {
-        let r1 = self
-            .predict_reward(obs_1, act_1)
-            .sum_dim(Some(&[-1][..]), false, Kind::Float);
-        let r2 = self
-            .predict_reward(obs_2, act_2)
-            .sum_dim(Some(&[-1][..]), false, Kind::Float);
+        let r1 =
+            self.predict_reward(obs_1, act_1)
+                .sum_dim_intlist(Some(&[-1][..]), false, Kind::Float);
+        let r2 =
+            self.predict_reward(obs_2, act_2)
+                .sum_dim_intlist(Some(&[-1][..]), false, Kind::Float);
 
         // P(traj_1 > traj_2) = exp(sum(r1)) / (exp(sum(r1)) + exp(sum(r2)))
         let logits = r1 - r2;

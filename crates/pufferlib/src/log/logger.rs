@@ -1,9 +1,6 @@
 //! Metric logger traits and composites.
 
 use crate::types::{Box, HashMap, String, Vec};
-use alloc::sync::Arc;
-#[cfg(feature = "std")]
-use std::sync::Mutex;
 
 /// Trait for logging metrics to various backends.
 pub trait MetricLogger: Send + Sync {
