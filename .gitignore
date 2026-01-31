@@ -1,18 +1,22 @@
 # Rust standard
 /target
 Cargo.lock
+**/*.rs.bk
 
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
 # Project specific
 /libtorch
 /checkpoints
 /checkpoints_test
 /data
+/pufferlib_rust.pyd
 
 # Python build artifacts and environments
 __pycache__/
@@ -27,12 +31,18 @@ venv/
 ENV/
 env/
 .python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Logs and Debug
 *.log
 *.txt
 *.json
 *.pt
+*.bin
+*.out
+*.err
 !README.md
 !LICENSE
 !Cargo.toml
@@ -44,3 +54,10 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
