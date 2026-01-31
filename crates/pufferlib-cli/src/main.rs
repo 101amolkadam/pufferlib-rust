@@ -199,6 +199,7 @@ fn main() -> Result<()> {
 
 #[cfg(feature = "torch")]
 #[allow(unused_imports)]
+#[allow(clippy::too_many_arguments)]
 fn train(
     env_name: &str,
     timesteps: u64,
